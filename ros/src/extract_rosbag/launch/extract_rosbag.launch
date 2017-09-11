@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="rosbag" />
+    <arg name="outdir" />
+    <node pkg="extract_rosbag" type="extract.py" args="$(arg rosbag) --outdir=$(arg outdir)" name="extract_rosbag" />
+</launch>
