@@ -32,6 +32,11 @@ that we have created in the `__init__` function.
 '''
 
 class DBWNode(object):
+    dbw_enabled = False
+    last_control_timestamp = None
+    last_timestamp = None
+    last_proposed_angular_vel = 0
+    last_proposed_vel = 0
     def __init__(self):
         rospy.init_node('dbw_node')
 
@@ -54,24 +59,45 @@ class DBWNode(object):
                                          BrakeCmd, queue_size=1)
 
         # TODO: Create `TwistController` object
-        # self.controller = TwistController(<Arguments you wish to provide>)
+        self.controller = Controller(vehicle_mass, brake_deadband, decel_limit,accel_limit, wheel_base, steer_ratio, max_lat_accel, max_steer_angle)
 
         # TODO: Subscribe to all the topics you need to
-
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
         self.loop()
+
+    def on_current_velocity(self, data):
+        self.last_current_velocity = data.twist.linear.x
+
+    def on_enabled(self, data):
+        self.dbw_enabled = data.data
+        rospy.logerr('Got dbw_enabled : %s',str(data.data))
+
+    def on_twist_cmd(self, data):
+        self.last_timestamp = data.header.stamp.secs + data.header.stamp.nsecs * 10e-9
+        self.last_proposed_angular_vel = data.twist.angular.z
+        self.last_proposed_vel = data.twist.linear.x
+        rospy.logerr('Got data: %s, last_ts: %f', str(data), self.last_timestamp)
 
     def loop(self):
         rate = rospy.Rate(10) # reduced to 10 from 50Hz due to perf issues
         while not rospy.is_shutdown():
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
-            # throttle, brake, steering = self.controller.control(<proposed linear velocity>,
-            #                                                     <proposed angular velocity>,
-            #                                                     <current linear velocity>,
-            #                                                     <dbw status>,
-            #                                                     <any other argument you need>)
-            # if <dbw is enabled>:
-            #   self.publish(throttle, brake, steer)
+            if (self.last_timestamp):
+                if (not self.last_control_timestamp):
+                    self.last_control_timestamp = self.last_timestamp
+                else:
+                    throttle, brake, steering = self.controller.control(self.last_proposed_vel,
+                                                                        self.last_proposed_angular_vel,
+                                                                        self.last_current_velocity,
+                                                                        1./10)
+
+                    if self.dbw_enabled:
+                        rospy.logerr('sending throttle: %f, brake: %f, steer: %f, last_ts: %f', throttle, brake, steering, self.last_control_timestamp)
+                        self.last_control_timestamp = self.last_timestamp
+                        self.publish(throttle, brake, steering)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
