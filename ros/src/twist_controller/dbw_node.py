@@ -74,7 +74,6 @@ class DBWNode(object):
 
         self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 0, self.max_lat_accel, max_steer_angle)
 
-        # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
         rospy.Subscriber('/twist_cmd_t', TwistStamped, self.on_twist_cmd)
         rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
@@ -92,25 +91,27 @@ class DBWNode(object):
 
         bcmd = BrakeCmd()
         #torque = Mass * acc * wheel_radius
-        max_brake_torque = min(BrakeCmd.TORQUE_MAX, (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)  * abs(self.decel_limit) * self.wheel_radius)
+        max_brake_torque = min(BrakeCmd.TORQUE_MAX, (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
+                               * abs(self.decel_limit) * self.wheel_radius)
+
         if throttle >= 0:
             tcmd.enable = True
             bcmd.enable = False
             bcmd.boo_cmd = False
             tcmd.pedal_cmd = throttle
             bcmd.pedal_cmd = 0
-        elif abs(throttle) > self.brake_deadband: #Must leave a deadband or the two parts of this PID controller will fight!
+        elif abs(throttle) > self.brake_deadband:
+            # Must leave a deadband or the two parts of this PID controller will fight!
             bcmd.enable = True
             bcmd.boo_cmd = True
             tcmd.pedal_cmd = 0
             tcmd.enable = False
-            rospy.logerr('Max brake torque is %f', max_brake_torque)
+            #rospy.logerr('Max brake torque is %f', max_brake_torque)
             bcmd.pedal_cmd = (abs(throttle) - self.brake_deadband) * max_brake_torque
         else:
             # coasting
             tcmd.enable = False
             bcmd.enable = False
-
 
         self.throttle_pub.publish(tcmd)
         self.brake_pub.publish(bcmd)
@@ -126,7 +127,10 @@ class DBWNode(object):
         rospy.logerr('Got dbw_enabled : %s',str(data.data))
 
     def on_twist_cmd(self, data):
+        # publish to PID control node and wait for output
         self.pid_setpoint.publish(data.twist.linear.x)
+
+        #TODO: Handle angular velocity
         self.last_timestamp = rospy.Time(data.header.stamp.secs, data.header.stamp.nsecs)
         self.last_proposed_angular_vel = data.twist.angular.z
         self.last_proposed_vel = data.twist.linear.x
@@ -136,28 +140,13 @@ class DBWNode(object):
         rate = rospy.Rate(10) # reduced to 10 from 50Hz due to perf issues
         while not rospy.is_shutdown():
             # TODO: Do PID control on steering
-            # You should only publish the control commands if dbw is enabled
-
-            #if self.dbw_enabled:
-                # rospy.logerr('sending throttle: %f, brake: %f, steer: %f, last_ts: %f', throttle, brake, steering, self.last_control_timestamp.to_sec())
-                #self.last_control_timestamp = self.last_current_velocity_ts
-                # self.publish(throttle, brake, steering)
             rate.sleep()
 
-    def publish(self, throttle, brake, steer):
-        tcmd = ThrottleCmd()
-        tcmd.enable = True
-        tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
-        tcmd.pedal_cmd = throttle
-        self.throttle_pub.publish(tcmd)
-
+    def publish_steering(self, steer):
         scmd = SteeringCmd()
         scmd.enable = True
         scmd.steering_wheel_angle_cmd = steer
         self.steer_pub.publish(scmd)
-
-
-
 
 if __name__ == '__main__':
     DBWNode()
