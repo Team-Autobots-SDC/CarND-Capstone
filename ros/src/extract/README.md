@@ -31,4 +31,8 @@ To extract a rosbag's images to an output folder:
 
 `roslaunch extract extract_rosbag.launch rosbag:=<FULL PATH TO BAGFILE> outdir:=<FULL PATH TO OUTPUT FOLDER>`
 
+To craete a subscriber to extract images from a running session, at 3 fps:
+
+`roslaunch extract extract_subscriber.launch topics:=/image_color rate:=3 outdir:=<FULL PATH TO OUTPUT FOLDER>`
+
 Note: make sure your output folder already exists.
