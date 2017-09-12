@@ -47,7 +47,8 @@ class DBWNode(object):
     vehicle_mass = None
     last_current_velocity = None
     last_current_velocity_ts = None
-
+    last_throttle = None
+    last_brake = None
     def __init__(self):
         rospy.init_node('dbw_node')
 
@@ -113,8 +114,13 @@ class DBWNode(object):
             tcmd.enable = False
             bcmd.enable = False
 
-        self.throttle_pub.publish(tcmd)
-        self.brake_pub.publish(bcmd)
+        if (self.last_throttle != tcmd.pedal_cmd):
+            self.throttle_pub.publish(tcmd)
+            self.last_throttle = tcmd.pedal_cmd
+
+        if (self.last_brake != bcmd.pedal_cmd):
+            self.brake_pub.publish(bcmd)
+            self.last_brake = bcmd.pedal_cmd
 
     def on_current_velocity(self, data):
         self.last_current_velocity = data.twist.linear.x
