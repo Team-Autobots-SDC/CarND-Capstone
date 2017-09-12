@@ -1,5 +1,5 @@
-# extract_rosbag
-Reads, processes, and displays data contained within a ROSBag file
+# extract
+Reads, processes, and displays data contained within a ROSBag file or subscribed topics
 
 ## System Requirements
 
@@ -29,6 +29,6 @@ Perform a `catkin_make` and `source devel/setup.bash`
 
 To extract a rosbag's images to an output folder:
 
-`roslaunch extract_rosbag extract_rosbag.launch rosbag:=<FULL PATH TO BAGFILE> outdir:=<FULL PATH TO OUTPUT FOLDER>`
+`roslaunch extract extract_rosbag.launch rosbag:=<FULL PATH TO BAGFILE> outdir:=<FULL PATH TO OUTPUT FOLDER>`
 
 Note: make sure your output folder already exists.

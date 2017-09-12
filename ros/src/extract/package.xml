@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>extract_rosbag</name>
+  <name>extract</name>
   <version>0.0.0</version>
   <description>Rosbag extractor package</description>
 
