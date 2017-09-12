@@ -63,11 +63,11 @@ class DBWNode(object):
 
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
-                                         SteeringCmd, queue_size=1)
+                                         SteeringCmd, queue_size=10)
         self.throttle_pub = rospy.Publisher('/vehicle/throttle_cmd',
-                                            ThrottleCmd, queue_size=1)
+                                            ThrottleCmd, queue_size=10)
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
-                                         BrakeCmd, queue_size=1)
+                                         BrakeCmd, queue_size=10)
 
         # TODO: Create `TwistController` object
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
