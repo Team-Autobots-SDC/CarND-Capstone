@@ -237,15 +237,15 @@ bool PurePursuit::verifyFollowing() const
   getLinearEquation(current_waypoints_.getWaypointPosition(1), current_waypoints_.getWaypointPosition(2), &a, &b, &c);
   double displacement = getDistanceBetweenLineAndPoint(current_pose_.pose.position, a, b, c);
   double relative_angle = getRelativeAngle(current_waypoints_.getWaypointPose(1), current_pose_.pose);
-  //ROS_ERROR("side diff : %lf , angle diff : %lf",displacement,relative_angle);
+  ROS_ERROR("side diff : %lf , angle diff : %lf",displacement,relative_angle);
   if (displacement < displacement_threshold_ && relative_angle < relative_angle_threshold_)
   {
-    // ROS_INFO("Following : True");
+    ROS_INFO("Following : True");
     return true;
   }
   else
   {
-    // ROS_INFO("Following : False");
+    ROS_INFO("Following : False");
     return false;
   }
 }
@@ -397,8 +397,8 @@ geometry_msgs::TwistStamped PurePursuit::go()
 
 #ifdef LOG
   std::ofstream ofs("/tmp/pure_pursuit.log", std::ios::app);
-  ofs << _current_waypoints.getWaypointPosition(next_waypoint).x << " "
-      << _current_waypoints.getWaypointPosition(next_waypoint).y << " " << next_target.x << " " << next_target.y
+  ofs << current_waypoints_.getWaypointPosition(next_waypoint).x << " "
+      << current_waypoints_.getWaypointPosition(next_waypoint).y << " " << position_of_next_target_.x << " " << position_of_next_target_.y
       << std::endl;
 #endif
 }
