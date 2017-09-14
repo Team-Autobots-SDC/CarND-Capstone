@@ -49,6 +49,7 @@ class DBWNode(object):
     last_current_velocity_ts = None
     last_throttle = None
     last_brake = None
+    last_steering = None
     def __init__(self):
         rospy.init_node('dbw_node')
 
@@ -76,14 +77,14 @@ class DBWNode(object):
         self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 0, self.max_lat_accel, max_steer_angle)
 
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
-        rospy.Subscriber('/twist_cmd_t', TwistStamped, self.on_twist_cmd)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
         rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
 
         rospy.Subscriber('/throttle_pid/control_effort', Float64, self.on_control_effort)
         self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
         self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
         self.pid_setpoint = rospy.Publisher('/throttle_pid/setpoint', Float64, queue_size=1)
-        self.loop()
+        rospy.spin()
 
     def on_control_effort(self, data):
         throttle = data.data
@@ -136,17 +137,18 @@ class DBWNode(object):
         # publish to PID control node and wait for output
         self.pid_setpoint.publish(data.twist.linear.x)
 
+        if (self.last_current_velocity):
+            steering = self.yaw_controller.get_steering(data.twist.linear.x, data.twist.angular.z, self.last_current_velocity)
+            if steering != self.last_steering:
+                # self.last_steering = steering
+                self.publish_steering(steering)
+                rospy.logerr('Sending steering: %f', steering)
+
         #TODO: Handle angular velocity
         self.last_timestamp = rospy.Time(data.header.stamp.secs, data.header.stamp.nsecs)
         self.last_proposed_angular_vel = data.twist.angular.z
         self.last_proposed_vel = data.twist.linear.x
         #rospy.logerr('Got data: %s, last_ts: %f', str(data), self.last_timestamp.to_sec())
-
-    def loop(self):
-        rate = rospy.Rate(10) # reduced to 10 from 50Hz due to perf issues
-        while not rospy.is_shutdown():
-            # TODO: Do PID control on steering
-            rate.sleep()
 
     def publish_steering(self, steer):
         scmd = SteeringCmd()
