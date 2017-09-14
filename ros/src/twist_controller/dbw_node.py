@@ -64,7 +64,7 @@ class DBWNode(object):
 
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
-                                         SteeringCmd, queue_size=10)
+                                         SteeringCmd, queue_size=1)
         self.throttle_pub = rospy.Publisher('/vehicle/throttle_cmd',
                                             ThrottleCmd, queue_size=10)
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
@@ -75,15 +75,15 @@ class DBWNode(object):
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
 
         self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 0, self.max_lat_accel, max_steer_angle)
+        self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
+        self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
+        self.pid_setpoint = rospy.Publisher('/throttle_pid/setpoint', Float64, queue_size=1)
 
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
         rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
 
         rospy.Subscriber('/throttle_pid/control_effort', Float64, self.on_control_effort)
-        self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
-        self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
-        self.pid_setpoint = rospy.Publisher('/throttle_pid/setpoint', Float64, queue_size=1)
         rospy.spin()
 
     def on_control_effort(self, data):
@@ -139,10 +139,7 @@ class DBWNode(object):
 
         if (self.last_current_velocity):
             steering = self.yaw_controller.get_steering(data.twist.linear.x, data.twist.angular.z, self.last_current_velocity)
-            if steering != self.last_steering:
-                # self.last_steering = steering
-                self.publish_steering(steering)
-                rospy.logerr('Sending steering: %f', steering)
+            self.publish_steering(steering)
 
         #TODO: Handle angular velocity
         self.last_timestamp = rospy.Time(data.header.stamp.secs, data.header.stamp.nsecs)
