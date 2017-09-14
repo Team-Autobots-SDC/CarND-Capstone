@@ -22,11 +22,11 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
-
+MAX_SEARCH_WPS = 50
 
 class WaypointUpdater(object):
     all_waypoints = None
-    last_closest_wp_index = -1
+    last_closest_wp_index = None
     last_pose = None
 
     def __init__(self):
@@ -45,8 +45,12 @@ class WaypointUpdater(object):
     def get_closest_waypoint_index(self, position, orientation):
         heading = self.get_car_heading(orientation)
         min_distance = 1000
-        min_i = 0
-        for i in range(len(self.all_waypoints)):
+        min_i = None
+        range_for_search = range(len(self.all_waypoints))
+        if (self.last_closest_wp_index):
+            range_for_search = range(self.last_closest_wp_index, self.last_closest_wp_index+MAX_SEARCH_WPS)
+
+        for i in range_for_search:
             i = i % len(self.all_waypoints)
             waypoint = self.all_waypoints[i]
             distance = self.p2p_distance(position, waypoint.pose.pose.position)
@@ -56,7 +60,12 @@ class WaypointUpdater(object):
             if (distance < min_distance):
                 min_distance = distance
                 min_i = i
-        return min_i
+        if not min_i:
+            rospy.logerr('Lost waypoint search, recurse without last_waypoint')
+            self.last_closest_wp_index = None
+        else:
+            self.last_closest_wp_index = min_i
+            return min_i
 
     def get_car_heading(self, orientation):
         quaternion = (orientation.x,
@@ -85,7 +94,7 @@ class WaypointUpdater(object):
 
     def pose_cb(self, msg):
         self.last_pose = msg.pose
-        
+
     def waypoints_cb(self, data):
         self.all_waypoints = data.waypoints
 
