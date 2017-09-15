@@ -75,9 +75,9 @@ class WaypointUpdater(object):
         next_i = (min_i+1) % len(self.all_waypoints)
         next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[next_i], position, orientation)
         if (optimized and min_heading_diff > math.pi/2 and next_heading_diff > math.pi/2):
-            rospy.logerr('Lost waypoint search, recurse without last_waypoint')
+            rospy.logerr('last_waypoint possibly incorrect, next iteration will search entire map')
             self.last_closest_wp_index = None
-            return None, None
+            return next_i, next_heading_diff
         elif(not optimized and min_heading_diff > math.pi/2):
             self.last_closest_wp_index = min_i+1
             return next_i, next_heading_diff
@@ -126,11 +126,8 @@ class WaypointUpdater(object):
 
     def publish_waypoints(self):
         min_i = None
-        while (min_i is None):
-            position = self.last_pose
-            min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
-
-        self.last_closest_wp_index = min_i
+        position = self.last_pose
+        min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
         rospy.loginfo("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
                      position.position.y, position.orientation.z, position.orientation.w,
@@ -146,7 +143,7 @@ class WaypointUpdater(object):
             waypoint = self.all_waypoints[i % len(self.all_waypoints)]
 
             # arbitrary slowdown on turns.
-            waypoint.twist.twist.linear.x = min(10,2 + 3 / min_h)
+            waypoint.twist.twist.linear.x = min(12,4 + 4 / min_h)
             waypointCmds.append(waypoint)
 
         final_lane = Lane()
