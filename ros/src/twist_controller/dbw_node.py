@@ -47,8 +47,8 @@ class DBWNode(object):
     vehicle_mass = None
     last_current_velocity = None
     last_current_velocity_ts = None
-    last_throttle = None
-    last_brake = None
+    last_throttle = (None, None)
+    last_brake = (None, None)
     last_steering = None
     def __init__(self):
         rospy.init_node('dbw_node')
@@ -86,42 +86,50 @@ class DBWNode(object):
         rospy.Subscriber('/throttle_pid/control_effort', Float64, self.on_control_effort)
         rospy.spin()
 
-    def on_control_effort(self, data):
-        throttle = data.data
+    def send_brake(self, brake, enable):
+        bcmd = BrakeCmd()
+        bcmd.enable = enable
+        bcmd.boo_cmd = enable
+        bcmd.pedal_cmd = brake
+        self.brake_pub.publish(bcmd)
+
+    def send_throttle(self, throttle, enable):
         tcmd = ThrottleCmd()
         tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
+        tcmd.enable = enable
+        tcmd.pedal_cmd = throttle
+        self.throttle_pub.publish(tcmd)
 
-        bcmd = BrakeCmd()
-        #torque = Mass * acc * wheel_radius
-        max_brake_torque = min(BrakeCmd.TORQUE_MAX, (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
-                               * abs(self.decel_limit) * self.wheel_radius)
+    def on_control_effort(self, data):
+        throttle = data.data
+
+        brake_enable = False
+        brake_val = 0
+
+        throttle_enable = False
+        throttle_val = 0
 
         if throttle >= 0:
-            tcmd.enable = True
-            bcmd.enable = False
-            bcmd.boo_cmd = False
-            tcmd.pedal_cmd = throttle
-            bcmd.pedal_cmd = 0
+            throttle_enable = True
+            throttle_val = throttle
+            brake_enable = False
         elif abs(throttle) > self.brake_deadband:
             # Must leave a deadband or the two parts of this PID controller will fight!
-            bcmd.enable = True
-            bcmd.boo_cmd = True
-            tcmd.pedal_cmd = 0
-            tcmd.enable = False
+            brake_enable = True
+            throttle_enable = False
+            # torque = Mass * acc * wheel_radius
+            max_brake_torque = min(BrakeCmd.TORQUE_MAX, (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
+                                   * abs(self.decel_limit) * self.wheel_radius)
             #rospy.logerr('Max brake torque is %f', max_brake_torque)
-            bcmd.pedal_cmd = (abs(throttle) - self.brake_deadband) * max_brake_torque
-        else:
-            # coasting
-            tcmd.enable = False
-            bcmd.enable = False
+            brake_val = (abs(throttle) - self.brake_deadband) * max_brake_torque
 
-        if (self.last_throttle != tcmd.pedal_cmd):
-            self.throttle_pub.publish(tcmd)
-            self.last_throttle = tcmd.pedal_cmd
+        if (self.last_throttle[0] != throttle_val):
+            self.send_throttle(throttle_val, throttle_enable)
+            self.last_throttle = (throttle_val, throttle_enable)
 
-        if (self.last_brake != bcmd.pedal_cmd):
-            self.brake_pub.publish(bcmd)
-            self.last_brake = bcmd.pedal_cmd
+        if (self.last_brake[0] != brake_val):
+            self.send_brake(brake_val, brake_enable)
+            self.last_brake = (brake_val, brake_enable)
 
     def on_current_velocity(self, data):
         self.last_current_velocity = data.twist.linear.x
@@ -132,6 +140,13 @@ class DBWNode(object):
         self.dbw_enabled = data.data
         self.pid_enable_pub.publish(data.data)
         rospy.logerr('Got dbw_enabled : %s',str(data.data))
+
+    def loop(self):
+        rate = rospy.Rate(1) #unfortunately necessary since sometimes the simulator slows down
+        while not rospy.is_shutdown():
+            self.send_throttle(self.last_throttle[0], self.last_throttle[1])
+            self.send_brake(self.last_brake[0], self.last_brake[1])
+        rate.sleep()
 
     def on_twist_cmd(self, data):
         # publish to PID control node and wait for output

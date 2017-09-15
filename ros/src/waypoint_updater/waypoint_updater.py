@@ -40,8 +40,8 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         self.loop()
-        # rospy.spin()
 
+    # angle calc formula from: https://gamedev.stackexchange.com/questions/4467/comparing-angles-and-working-out-the-difference
     def angle_diff(self,a,b):
         return math.pi - abs(abs(a-b) - math.pi)
 
@@ -131,7 +131,7 @@ class WaypointUpdater(object):
 
         self.last_closest_wp_index = min_i
 
-        rospy.logerr("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
+        rospy.loginfo("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
                      position.position.y, position.orientation.z, position.orientation.w,
                      self.get_car_heading(position.orientation)
                      , min_i, self.all_waypoints[min_i].pose.pose.position.x,
