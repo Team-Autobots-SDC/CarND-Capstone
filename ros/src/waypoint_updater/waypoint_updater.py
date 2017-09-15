@@ -22,7 +22,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
-MAX_SEARCH_WPS = 50
+MAX_SEARCH_WPS = 100
 
 class WaypointUpdater(object):
     all_waypoints = None
@@ -42,30 +42,47 @@ class WaypointUpdater(object):
         self.loop()
         # rospy.spin()
 
+    def angle_diff(self,a,b):
+        return math.pi - abs(abs(a-b) - math.pi)
+
+    def get_waypoint_heading_diff(self, waypoint, position, orientation):
+        car_heading = self.get_car_heading(orientation)
+        theta = math.atan2(waypoint.pose.pose.position.y - position.y,
+                           waypoint.pose.pose.position.x - position.x)
+        return self.angle_diff(theta,car_heading)
+
     def get_closest_waypoint_index(self, position, orientation):
         heading = self.get_car_heading(orientation)
         min_distance = 1000
         min_i = None
+
         range_for_search = range(len(self.all_waypoints))
+        optimized = False
         if (self.last_closest_wp_index):
+            optimized = True
             range_for_search = range(self.last_closest_wp_index, self.last_closest_wp_index+MAX_SEARCH_WPS)
 
         for i in range_for_search:
             i = i % len(self.all_waypoints)
             waypoint = self.all_waypoints[i]
             distance = self.p2p_distance(position, waypoint.pose.pose.position)
-            wp_heading = self.get_car_heading(waypoint.pose.pose.orientation)
-            delta = abs(wp_heading - heading)
 
-            if (distance < min_distance):
+            if (distance <= min_distance):
                 min_distance = distance
                 min_i = i
-        if not min_i:
+
+        min_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i], position, orientation)
+        next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i+1], position, orientation)
+        if (optimized and min_heading_diff > math.pi/2 and next_heading_diff > math.pi/2):
             rospy.logerr('Lost waypoint search, recurse without last_waypoint')
             self.last_closest_wp_index = None
+            return None, None
+        elif(not optimized and min_heading_diff > math.pi/2):
+            self.last_closest_wp_index = min_i+1
+            return min_i+1, next_heading_diff
         else:
             self.last_closest_wp_index = min_i
-            return min_i
+            return min_i, min_heading_diff
 
     def get_car_heading(self, orientation):
         quaternion = (orientation.x,
@@ -74,23 +91,6 @@ class WaypointUpdater(object):
                       orientation.w)
         rpy = tf.transformations.euler_from_quaternion(quaternion)
         return rpy[2]
-
-    def get_next_waypoint_index(self, position, orientation):
-        closest = self.get_closest_waypoint_index(position, orientation)
-        car_heading = self.get_car_heading(orientation)
-        waypoint = self.all_waypoints[closest]
-        theta = math.atan2(waypoint.pose.pose.position.y - position.y,
-                      waypoint.pose.pose.position.x - position.x)
-        heading_diff = abs(theta - car_heading)
-        if (heading_diff >= math.pi/2):
-            closest += 1
-            waypoint = self.all_waypoints[closest]
-            newtheta = math.atan2(waypoint.pose.pose.position.y - position.y,
-                      waypoint.pose.pose.position.x - position.x)
-            new_diff = abs(newtheta - car_heading)
-            # rospy.logerr('curpos: %f,%f Chose next one, Wp: %d, theta: %f, diff: %f, wp: %d, theta: %f, diff: %f', position.x, position.y, closest-1, theta, heading_diff, closest, newtheta, new_diff)
-
-        return closest
 
     def pose_cb(self, msg):
         self.last_pose = msg.pose
@@ -124,24 +124,28 @@ class WaypointUpdater(object):
         return dist
 
     def publish_waypoints(self):
-        position = self.last_pose
-        min_i = self.get_next_waypoint_index(position.position, position.orientation)
+        min_i = None
+        while (min_i is None):
+            position = self.last_pose
+            min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
         self.last_closest_wp_index = min_i
 
-        # rospy.logerr("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f", position.position.x,
-        #              position.position.y, position.orientation.z, position.orientation.w,
-        #              self.get_car_heading(position.orientation)
-        #              , min_i, self.all_waypoints[min_i].pose.pose.position.x,
-        #              self.all_waypoints[min_i].pose.pose.position.y,
-        #              self.all_waypoints[min_i].pose.pose.orientation.z,  self.all_waypoints[min_i].pose.pose.orientation.w,
-        #              self.get_car_heading(self.all_waypoints[min_i].pose.pose.orientation)
-        #              )
+        rospy.logerr("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
+                     position.position.y, position.orientation.z, position.orientation.w,
+                     self.get_car_heading(position.orientation)
+                     , min_i, self.all_waypoints[min_i].pose.pose.position.x,
+                     self.all_waypoints[min_i].pose.pose.position.y,
+                     self.all_waypoints[min_i].pose.pose.orientation.z,  self.all_waypoints[min_i].pose.pose.orientation.w,
+                     self.get_car_heading(self.all_waypoints[min_i].pose.pose.orientation), min_h
+                     )
         waypointCmds = []
 
         for i in range(min_i, min_i + LOOKAHEAD_WPS):
             waypoint = self.all_waypoints[i % len(self.all_waypoints)]
-            waypoint.twist.twist.linear.x = 5
+
+            # arbitrary slowdown on turns.
+            waypoint.twist.twist.linear.x = min(10,2 + 3 / min_h)
             waypointCmds.append(waypoint)
 
         final_lane = Lane()
@@ -151,9 +155,9 @@ class WaypointUpdater(object):
         self.final_waypoints_pub.publish(final_lane)
 
     def loop(self):
-        rate = rospy.Rate(20)  # reduced from 40 to 1 due to perf issues
+        rate = rospy.Rate(30)  # reduced from 40 to 1 due to perf issues
         while not rospy.is_shutdown():
-            if (self.last_pose):
+            if (self.last_pose and self.all_waypoints):
                 self.publish_waypoints()
             rate.sleep()
 
