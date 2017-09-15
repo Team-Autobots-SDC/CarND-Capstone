@@ -72,14 +72,15 @@ class WaypointUpdater(object):
                 min_i = i
 
         min_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i], position, orientation)
-        next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i+1], position, orientation)
+        next_i = (min_i+1) % len(self.all_waypoints)
+        next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[next_i], position, orientation)
         if (optimized and min_heading_diff > math.pi/2 and next_heading_diff > math.pi/2):
             rospy.logerr('Lost waypoint search, recurse without last_waypoint')
             self.last_closest_wp_index = None
             return None, None
         elif(not optimized and min_heading_diff > math.pi/2):
             self.last_closest_wp_index = min_i+1
-            return min_i+1, next_heading_diff
+            return next_i, next_heading_diff
         else:
             self.last_closest_wp_index = min_i
             return min_i, min_heading_diff
