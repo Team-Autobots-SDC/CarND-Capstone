@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="topics" />
+    <arg name="rate" default="10"/>
+    <arg name="outdir" />
+    <node pkg="extract" type="extract_subscriber.py" args="$(arg topics) --rate=$(arg rate) --outdir=$(arg outdir)" name="extract_subscriber" />
+</launch>
