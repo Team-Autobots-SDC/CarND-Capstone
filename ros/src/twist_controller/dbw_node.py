@@ -48,7 +48,7 @@ class State(object):
     def update(self, val):
         retval = not(self.equals(val))
         if retval:
-            rospy.logerr('values not equal: {}, {}'.format(self.value, val))
+            #rospy.logerr('values not equal: {}, {}'.format(self.value, val))
             self.value = val
             self.ts = rospy.Time.now()
         return retval
@@ -120,7 +120,7 @@ class DBWNode(object):
         max_brake_torque = min(BrakeCmd.TORQUE_MAX, (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY)
                                * abs(self.decel_limit) * self.wheel_radius)
 
-        rospy.logerr('throttle %f', throttle)
+        #rospy.logerr('throttle %f', throttle)
 
         if throttle > 0:
             pass
@@ -148,7 +148,7 @@ class DBWNode(object):
             cmd.pedal_cmd = throttle_perc
             cmd.enable = True
 
-            rospy.logerr('throttle pedal_cmd is %f', throttle_perc)
+            #rospy.logerr('throttle pedal_cmd is %f', throttle_perc)
 
             self.throttle_pub.publish(cmd)
 
@@ -164,7 +164,7 @@ class DBWNode(object):
             cmd.boo_cmd = True
             cmd.enable = True
 
-            rospy.logerr('brake pedal_cmd is %f, enable %d', brake_torque, cmd.enable)
+            #rospy.logerr('brake pedal_cmd is %f, enable %d', brake_torque, cmd.enable)
 
             self.brake_pub.publish(cmd)
 
