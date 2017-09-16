@@ -11,6 +11,7 @@
         <param name="steer_ratio" value="2.67" />
         <param name="max_lat_accel" value="13." /> <!-- temporary for the simple waypoint follow -->
         <param name="max_steer_angle" value="8." />
+        <param name="loop_rate" value="5." />
     </node>
 
      <node name="throttle_pid" pkg="pid" type="controller" output="screen">
