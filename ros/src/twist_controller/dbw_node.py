@@ -122,7 +122,12 @@ class DBWNode(object):
 
         #rospy.logerr('throttle %f', throttle)
 
-        if throttle > 0:
+        if self.proposed_speed == 0.0 and self.speed.value < 0.5:
+            # apply minimum brake
+            throttle = 0.0
+            brake_torque = 100
+
+        elif throttle > 0:
             pass
 
         elif abs(throttle) > self.brake_deadband:
