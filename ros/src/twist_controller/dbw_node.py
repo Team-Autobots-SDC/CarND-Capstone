@@ -100,7 +100,6 @@ class DBWNode(object):
         self.speed = State(0)
         self.brake = State(0)
         self.throttle = State(0)
-        self.steering = State(0)
         self.proposed_speed = 0.0
 
         # Subscribers last to avoid initial race conditions
