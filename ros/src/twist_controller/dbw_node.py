@@ -94,21 +94,24 @@ class DBWNode(object):
 
         self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 0, self.max_lat_accel, max_steer_angle)
 
-        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
-        rospy.Subscriber('/vehicle/throttle_report', Float32, self.on_throttle_report)
-        rospy.Subscriber('/vehicle/brake_report', Float32, self.on_brake_report)
-        rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.on_steering_report)
-        rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
-        rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
-
-        rospy.Subscriber('/throttle_pid/control_effort', Float64, self.on_control_effort)
         self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
         self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
         self.pid_setpoint = rospy.Publisher('/throttle_pid/setpoint', Float64, queue_size=1)
         self.speed = State(0)
         self.brake = State(0)
         self.throttle = State(0)
+        self.steering = State(0)
         self.proposed_speed = 0.0
+
+        # Subscribers last to avoid initial race conditions
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
+        rospy.Subscriber('/vehicle/throttle_report', Float32, self.on_throttle_report)
+        rospy.Subscriber('/vehicle/brake_report', Float32, self.on_brake_report)
+        rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.on_steering_report)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
+        rospy.Subscriber('/throttle_pid/control_effort', Float64, self.on_control_effort)
+
         self.loop()
 
     def on_control_effort(self, data):
@@ -170,7 +173,7 @@ class DBWNode(object):
     def on_enabled(self, data):
         self.dbw_enabled = data.data
         self.pid_enable_pub.publish(data.data)
-        rospy.logerr('Got dbw_enabled : %s',str(data.data))
+        rospy.loginfo('Got dbw_enabled : %s',str(data.data))
 
     def on_brake_report(self, msg):
         if not(self.brake.equals(msg.data)):
@@ -190,12 +193,12 @@ class DBWNode(object):
         pass
 
     def on_twist_cmd(self, data):
-        rospy.logerr('Got twist cmd : %s', str(data))
+        rospy.loginfo('Got twist cmd : %s', str(data))
 
         # do not allow the car to go backwards
         speed = max(0, data.twist.linear.x)
 
-        rospy.logerr('New speed : %s', speed)
+        #rospy.logdebug('New speed : %s', speed)
 
         # publish to PID control node and wait for output
         self.pid_setpoint.publish(speed)
@@ -205,6 +208,10 @@ class DBWNode(object):
         #self.last_proposed_angular_vel = data.twist.angular.z
 
         self.proposed_speed = speed
+        if (self.proposed_speed):
+            steering = self.yaw_controller.get_steering(data.twist.linear.x, data.twist.angular.z,
+                                                        self.proposed_speed)
+            self.publish_steering(steering)
         #rospy.logerr('Got data: %s, last_ts: %f', str(data), self.last_timestamp.to_sec())
 
     def loop(self):
