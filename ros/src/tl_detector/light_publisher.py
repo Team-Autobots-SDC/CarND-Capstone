@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseStamped, Quaternion, TwistStamped
 import numpy as np
 import rospkg
 import math
+import yaml
 
 class TLPublisher(object):
     def __init__(self):
@@ -17,17 +18,21 @@ class TLPublisher(object):
 
         self.traffic_light_pubs = rospy.Publisher('/vehicle/traffic_lights', TrafficLightArray, queue_size=1)
 
-        light = self.create_light(20.991, 22.837, 1.524, 0.08, 3)
-        lights = TrafficLightArray()
-        lights.header = light.header
-        lights.lights = [light]
-        self.lights = lights
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
+        #create traffic ligts message
+        self.traffic_lights_message = TrafficLightArray()
+        #rosparam gets the lights position based on sim or site config file.
+        #look at the launch script to see which config is being used. 
+        self.traffic_lights_message.lights = [self.create_light(light_pos[0], light_pos[1], 1.524, 0.08, 3) for light_pos in self.config['light_positions']]
+        self.traffic_lights_message.header = self.traffic_lights_message.lights[0].header #just set it to first light's header
         self.loop()
 
     def loop(self):
         rate = rospy.Rate(50)
         while not rospy.is_shutdown():
-            self.traffic_light_pubs.publish(self.lights)
+            self.traffic_light_pubs.publish(self.traffic_lights_message)
             rate.sleep()
 
     def create_light(self, x, y, z, yaw, state):
