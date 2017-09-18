@@ -62,12 +62,16 @@ class WaypointUpdater(object):
     def set_waypoint_velocity(self, waypoints, waypoint, velocity):
         waypoints[waypoint].twist.twist.linear.x = velocity
 
-    def distance(self, waypoints, wp1, wp2):
+    def distance(self, waypoints, wp1_index, wp2_index):
+        """
+            Piece wise distance calculation. Starts at the wp1_index and calculates
+            the total distance between wp1_index and wp2_index.
+        """
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
-        for i in range(wp1, wp2+1):
-            dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
-            wp1 = i
+        for i in range(wp1_index, wp2_index+1):
+            dist += dl(waypoints[wp1_index].pose.pose.position, waypoints[i].pose.pose.position)
+            wp1_index = i
         return dist
 
 
