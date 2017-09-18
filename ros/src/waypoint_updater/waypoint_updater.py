@@ -129,7 +129,7 @@ class WaypointUpdater(object):
         position = self.last_pose
         min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
-        rospy.loginfo("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
+        rospy.logdebug("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
                      position.position.y, position.orientation.z, position.orientation.w,
                      self.get_car_heading(position.orientation)
                      , min_i, self.all_waypoints[min_i].pose.pose.position.x,
