@@ -21,7 +21,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
 MAX_SEARCH_WPS = 100
 
 class WaypointUpdater(object):
@@ -33,7 +33,7 @@ class WaypointUpdater(object):
         rospy.init_node('waypoint_updater')
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        self.basepoint_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=10)
@@ -74,12 +74,13 @@ class WaypointUpdater(object):
         min_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i], position, orientation)
         next_i = (min_i+1) % len(self.all_waypoints)
         next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[next_i], position, orientation)
-        if (optimized and min_heading_diff > math.pi/2 and next_heading_diff > math.pi/2):
+        if (optimized and min_heading_diff > math.pi/2.0 and next_heading_diff > math.pi/2.0):
             rospy.logerr('last_waypoint possibly incorrect, next iteration will search entire map')
             self.last_closest_wp_index = None
             return next_i, next_heading_diff
-        elif(not optimized and min_heading_diff > math.pi/2):
-            self.last_closest_wp_index = min_i+1
+        elif(min_heading_diff > math.pi/2):
+            rospy.logdebug('Returning next one, wp :%d, diff: %f, nextwp: %d, diff: %f', min_i, min_heading_diff, next_i, next_heading_diff)
+            self.last_closest_wp_index = next_i
             return next_i, next_heading_diff
         else:
             self.last_closest_wp_index = min_i
@@ -98,6 +99,8 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, data):
         self.all_waypoints = data.waypoints
+        self.basepoint_sub.unregister()
+
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
@@ -108,6 +111,7 @@ class WaypointUpdater(object):
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
+
         pass
 
     def get_waypoint_velocity(self, waypoint):
