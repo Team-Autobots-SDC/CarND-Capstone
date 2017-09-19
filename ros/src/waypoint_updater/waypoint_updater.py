@@ -74,6 +74,14 @@ class WaypointUpdater(object):
         min_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[min_i], position, orientation)
         next_i = (min_i+1) % len(self.all_waypoints)
         next_heading_diff = self.get_waypoint_heading_diff(self.all_waypoints[next_i], position, orientation)
+
+        # So the logic goes like this, if using a optimized search waypoint AND you get both closest heading
+        # and next heading diff to be very large, something MIGHT have gone wrong and you have lost the
+        # closest waypoint, so reset and start from scratch on the next iteration.
+        # However, if not optimized and your current min waypoint is offset by more than PI/2, then the next waypoint
+        # is the best option so just pick it (regardless if its optimized or not).
+        # If < PI/2 then this is the correct waypoint so go with it.
+        
         if (optimized and min_heading_diff > math.pi/2.0 and next_heading_diff > math.pi/2.0):
             rospy.logerr('last_waypoint possibly incorrect, next iteration will search entire map')
             self.last_closest_wp_index = None
