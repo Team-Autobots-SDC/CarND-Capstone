@@ -5,7 +5,6 @@ from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
 import tf.transformations
 import math
-
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
 
@@ -26,6 +25,7 @@ MAX_SEARCH_WPS = 100
 
 class WaypointUpdater(object):
     all_waypoints = None
+    waypoints_s = None
     last_closest_wp_index = None
     last_pose = None
 
@@ -81,13 +81,13 @@ class WaypointUpdater(object):
         # However, if not optimized and your current min waypoint is offset by more than PI/2, then the next waypoint
         # is the best option so just pick it (regardless if its optimized or not).
         # If < PI/2 then this is the correct waypoint so go with it.
-        
+
         if (optimized and min_heading_diff > math.pi/2.0 and next_heading_diff > math.pi/2.0):
             rospy.logerr('last_waypoint possibly incorrect, next iteration will search entire map')
             self.last_closest_wp_index = None
             return next_i, next_heading_diff
         elif(min_heading_diff > math.pi/2):
-            rospy.logdebug('Returning next one, wp :%d, diff: %f, nextwp: %d, diff: %f', min_i, min_heading_diff, next_i, next_heading_diff)
+            rospy.loginfo('Returning next one, wp :%d, diff: %f, nextwp: %d, diff: %f', min_i, min_heading_diff, next_i, next_heading_diff)
             self.last_closest_wp_index = next_i
             return next_i, next_heading_diff
         else:
@@ -107,19 +107,83 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, data):
         self.all_waypoints = data.waypoints
+        s = 0
+        self.waypoints_s = []
+        self.waypoints_s.append(0)
+        for i in range(0, len(self.all_waypoints)-1):
+            s += self.distance(self.all_waypoints, i, i+1)
+            self.waypoints_s.append(s)
+
         self.basepoint_sub.unregister()
 
+    # The following two functions have been monkey-ported over from the Path Planning project
+
+
+    def calculate_frenet(self, position, orientation):
+        next_wp_idx, heading = self.get_closest_waypoint_index(position, orientation)
+        prev_wp_idx = next_wp_idx - 1
+        if (next_wp_idx == 0):
+            prev_wp_idx = len(self.all_waypoints) - 1
+
+        next_wp_pos = self.all_waypoints[next_wp_idx].pose.pose.position
+        prev_wp_pos = self.all_waypoints[prev_wp_idx].pose.pose.position
+
+        n_x = next_wp_pos.x - prev_wp_pos.x
+        n_y = next_wp_pos.y - prev_wp_pos.y
+        x_x = position.x - prev_wp_pos.x
+        y_y = position.y - prev_wp_pos.y
+
+        #Find projection
+        proj_norm = (x_x * n_x + y_y * n_y) / (n_x ** 2 + n_y ** 2)
+        proj_x = proj_norm * n_x
+        proj_y = proj_norm * n_y
+
+        frenet_d = self.p2p_distance_xy(x_x, y_y, proj_x, proj_y)
+
+        center_x = 1000 - prev_wp_pos.x
+        center_y = 2000 - prev_wp_pos.y
+
+        centerToPos = self.p2p_distance_xy(center_x, center_y, x_x, y_y)
+        centerToRef = self.p2p_distance_xy(center_x, center_y, proj_x, proj_y)
+
+        if (centerToPos <= centerToRef):
+            frenet_d *= -1
+
+        #calculate s
+        frenet_s = self.distance(self.all_waypoints, 0 , prev_wp_idx) + self.p2p_distance_xy(0,0, proj_x, proj_y)
+        return (frenet_s, frenet_d)
+
+    def getXY(self, s, d):
+        prev_wp = -1
+        while s > self.waypoints_s[prev_wp+1] and prev_wp < (len(self.waypoints_s)-1):
+            prev_wp += 1
+        next_wp = (prev_wp+1) % len(self.waypoints_s)
+        next_wp_pos = self.all_waypoints[next_wp].pose.pose.position
+        prev_wp_pos = self.all_waypoints[prev_wp].pose.pose.position
+        heading = math.atan2(next_wp_pos.y - prev_wp_pos.y, next_wp_pos.x - prev_wp_pos.x)
+        seg_s = s - self.waypoints_s[prev_wp]
+
+        seg_x = prev_wp_pos.x + seg_s * math.cos(heading)
+        seg_y = prev_wp_pos.y + seg_s * math.sin(heading)
+
+        normal_heading = heading - math.pi / 2
+        x = seg_x + d * math.cos(normal_heading)
+        y = seg_y + d * math.sin(normal_heading)
+
+        return (x,y)
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
         pass
 
+    def p2p_distance_xy(self,ax,ay, bx,by):
+        return math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+
     def p2p_distance(self,a,b):
-        return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+        return self.p2p_distance_xy(a.x, a.y, b.x, b.y)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
-
         pass
 
     def get_waypoint_velocity(self, waypoint):
@@ -141,9 +205,12 @@ class WaypointUpdater(object):
         position = self.last_pose
         min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
-        rospy.logdebug("Curpos %f,%f,%f,%f h:%f, next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
+        s,d = self.calculate_frenet(position.position, position.orientation)
+        x,y = self.getXY(s,d)
+        rospy.loginfo("Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f,  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
                      position.position.y, position.orientation.z, position.orientation.w,
-                     self.get_car_heading(position.orientation)
+                     self.get_car_heading(position.orientation),
+                      s,d,x,y
                      , min_i, self.all_waypoints[min_i].pose.pose.position.x,
                      self.all_waypoints[min_i].pose.pose.position.y,
                      self.all_waypoints[min_i].pose.pose.orientation.z,  self.all_waypoints[min_i].pose.pose.orientation.w,
@@ -170,7 +237,6 @@ class WaypointUpdater(object):
             if (self.last_pose and self.all_waypoints):
                 self.publish_waypoints()
             rate.sleep()
-
 
 if __name__ == '__main__':
     try:
