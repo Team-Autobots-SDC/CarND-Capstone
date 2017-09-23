@@ -182,7 +182,7 @@ class TLDetector(object):
         if (not self.lights):
             return None
 
-        print("Trying to find TF light closest to: ", light_position)
+        #print("Trying to find TF light closest to: ", light_position)
         dl = lambda a, b: math.sqrt((a.x-b[0])**2 + (a.y-b[1])**2)
         min_dist = 1e+10
         closest_light = None
@@ -210,7 +210,7 @@ class TLDetector(object):
             waypoint_index_closest_to_car_position = self.get_closest_waypoint(self.pose.pose)
             
             current_wp_pose = self.waypoints.waypoints[waypoint_index_closest_to_car_position]
-            print("Closest WP to Car POSE: ", current_wp_pose.pose.pose)
+            # print("Closest WP to Car POSE: ", current_wp_pose.pose.pose)
             #TODO find the closest visible traffic light (if one exists)
             buffer_space_in_meters = 50
 
@@ -224,7 +224,7 @@ class TLDetector(object):
                 if (abs(car_position.x-light_x) < buffer_space_in_meters): #and traffic light is facing us.
                     dist = dl(current_wp_pose.pose.pose.position, light_position)
                     if dist < 50 and dist < min_light_dist:
-                        print("Found a close Traffic Light: ", light_position)
+                        #print("Found a close Traffic Light: ", light_position)
                         min_light_dist = dist
                         closest_light_index = index
 
@@ -238,7 +238,7 @@ class TLDetector(object):
             #state = self.get_light_state(light)
             print("Traffic Light Predicted at: ", light_wp.pose.pose, " Has State: ", light.state)
             time.sleep(5)
-            return light_wp, light.state #state
+            return light_wp_index, light.state #state
 
         return -1, TrafficLight.UNKNOWN
 
