@@ -22,6 +22,7 @@ class TLPublisher(object):
         lights.header = light.header
         lights.lights = [light]
         self.lights = lights
+
         self.loop()
 
     def loop(self):
