@@ -192,7 +192,7 @@ class DBWNode(object):
         pass
 
     def on_twist_cmd(self, data):
-        rospy.logdebug('Got twist cmd : %s', str(data))
+        #rospy.logdebug('Got twist cmd : %s', str(data))
 
         # do not allow the car to go backwards
         speed = max(0, data.twist.linear.x)
