@@ -3,15 +3,16 @@ from keras.models import model_from_json
 from scipy.misc import imresize
 import tensorflow as tf
 import numpy as np
-
+import os
 class TLClassifier(object):
     def __init__(self):
 	# Load Keras model
-	json_file = open('/home/student/CarND-Capstone/ros/src/tl_detector/light_classification/model.json', 'r')
+	dir_path = os.path.dirname(os.path.realpath(__file__))
+	json_file = open(dir_path+'/model.json', 'r')
 	json_model = json_file.read()
 	json_file.close()
 	self.model = model_from_json(json_model)
-	self.model.load_weights('/home/student/CarND-Capstone/ros/src/tl_detector/light_classification/model.h5')
+	self.model.load_weights(dir_path+'/model.h5')
 	self.model._make_predict_function()
 	self.graph = tf.get_default_graph()
 
