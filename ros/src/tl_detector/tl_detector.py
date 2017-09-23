@@ -58,6 +58,8 @@ class TLDetector(object):
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+        time.sleep(10)
+    
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -74,7 +76,7 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
-        #print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
+        # print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
         '''
         Publish upcoming red lights at camera frequency.
         Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
@@ -238,7 +240,6 @@ class TLDetector(object):
             time.sleep(5)
             return light_wp, light.state #state
 
-        self.waypoints = None
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
