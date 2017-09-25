@@ -18,11 +18,21 @@ STATE_COUNT_THRESHOLD = 3
 class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
-        print("TL DETECTOR BOOTING UP.")
+
+        use_inference = rospy.get_param('~use_inference', True)
+        print("TL DETECTOR BOOTING UP: use inference = {}".format(use_inference))
         self.pose = None
         self.waypoints = None
         self.camera_image = None
         self.lights = []
+        self.bridge = None
+        self.light_classifier = None
+        self.listener = None
+
+        if use_inference:
+            self.bridge = CvBridge()
+            self.light_classifier = TLClassifier()
+            self.listener = tf.TransformListener()
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -41,10 +51,6 @@ class TLDetector(object):
         self.config = yaml.load(config_string)
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
-
-        self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
-        self.listener = tf.TransformListener()
 
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
@@ -235,8 +241,12 @@ class TLDetector(object):
         if light:
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
-            #state = self.get_light_state(light)
-            #print("Traffic Light Predicted at: ", light_wp.pose.pose, " Has State: ", light.state)
+            if self.light_classifier is not None:
+                state = self.get_light_state(light)
+                if light.state == state:
+                    print("Traffic Light Predicted CORRECTLY: ")
+                else:
+                    print("Traffic Light Predicted WRONG!!! ")
             #time.sleep(5)
             return light_wp_index, light.state #state
 
