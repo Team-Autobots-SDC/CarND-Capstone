@@ -33,7 +33,13 @@ class TLClassifier(object):
 	with self.graph.as_default():
 		prediction = self.model.predict(image)
 	
-	if np.argmax(prediction) == 1:
+	# Label indices: Green: 0, Red: 1, Yellow: 2, None: 3
+	pred = np.argmax(prediction)
+	if pred == 1:
 		return TrafficLight.RED
+	elif pred == 0:
+		return TrafficLight.GREEN
+	elif pred == 2:
+		return TrafficLight.YELLOW
 	else:
         	return TrafficLight.UNKNOWN
