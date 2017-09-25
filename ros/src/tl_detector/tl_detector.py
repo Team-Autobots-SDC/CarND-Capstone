@@ -236,8 +236,8 @@ class TLDetector(object):
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
             #state = self.get_light_state(light)
-            print("Traffic Light Predicted at: ", light_wp.pose.pose, " Has State: ", light.state)
-            time.sleep(5)
+            #print("Traffic Light Predicted at: ", light_wp.pose.pose, " Has State: ", light.state)
+            #time.sleep(5)
             return light_wp_index, light.state #state
 
         return -1, TrafficLight.UNKNOWN
