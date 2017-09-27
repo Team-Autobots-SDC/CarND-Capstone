@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Int32
+from geometry_msgs.msg import PoseStamped, TwistStamped
+from styx_msgs.msg import TrafficLight
 from styx_msgs.msg import Lane, Waypoint
+from jmt import JMT
 import tf.transformations
 import math
+import copy
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
 
@@ -32,11 +36,17 @@ class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
-        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        self.basepoint_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        self.loop_rate = rospy.get_param('~loop_rate', 5.)
 
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
+        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
+        self.basepoint_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        self.traffic_light_sub = rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_light_cb)
+
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=10)
+        self.light_wp = -1
+        self.jmt = None
+        self.last_vel = None
 
         # TODO: Add other member variables you need below
         self.loop()
@@ -105,6 +115,9 @@ class WaypointUpdater(object):
     def pose_cb(self, msg):
         self.last_pose = msg.pose
 
+    def velocity_cb(self, msg):
+        self.last_vel = msg.twist
+
     def waypoints_cb(self, data):
         self.all_waypoints = data.waypoints
         s = 0
@@ -115,6 +128,9 @@ class WaypointUpdater(object):
             self.waypoints_s.append(s)
 
         self.basepoint_sub.unregister()
+
+    def traffic_light_cb(self, data):
+        self.light_wp = data.data
 
     # The following two functions have been monkey-ported over from the Path Planning project
 
@@ -209,25 +225,91 @@ class WaypointUpdater(object):
         position = self.last_pose
         min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
-        s,d = self.calculate_frenet(position.position, position.orientation)
-        x,y = self.getXY(s,d)
-        rospy.loginfo("Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f,  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f", position.position.x,
-                     position.position.y, position.orientation.z, position.orientation.w,
-                     self.get_car_heading(position.orientation),
-                      s,d,x,y
-                     , min_i, self.all_waypoints[min_i].pose.pose.position.x,
-                     self.all_waypoints[min_i].pose.pose.position.y,
-                     self.all_waypoints[min_i].pose.pose.orientation.z,  self.all_waypoints[min_i].pose.pose.orientation.w,
-                     self.get_car_heading(self.all_waypoints[min_i].pose.pose.orientation), min_h
-                     )
+        s, d = self.calculate_frenet(position.position, position.orientation)
+        x, y = self.getXY(s, d)
+        rospy.loginfo(
+            "Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f,  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f",
+            position.position.x,
+            position.position.y, position.orientation.z, position.orientation.w,
+            self.get_car_heading(position.orientation),
+            s, d, x, y,
+            min_i, self.all_waypoints[min_i].pose.pose.position.x,
+            self.all_waypoints[min_i].pose.pose.position.y,
+            self.all_waypoints[min_i].pose.pose.orientation.z,
+            self.all_waypoints[min_i].pose.pose.orientation.w,
+            self.get_car_heading(self.all_waypoints[min_i].pose.pose.orientation), min_h
+        )
+
         waypointCmds = []
 
-        for i in range(min_i, min_i + LOOKAHEAD_WPS):
-            waypoint = self.all_waypoints[i % len(self.all_waypoints)]
+        #rospy.logerr('Updating waypoints in range [%d-%d]', min_i, min_i + LOOKAHEAD_WPS)
 
-            # arbitrary slowdown on turns.
-            waypoint.twist.twist.linear.x = min(12,4 + 4 / min_h)
-            waypointCmds.append(waypoint)
+        waypoint_r = range(min_i, min_i + LOOKAHEAD_WPS)
+        stop_at_light = self.light_wp in waypoint_r
+
+        if stop_at_light:
+            first = self.jmt is None
+
+            # calculate distance to light
+            s_start = self.waypoints_s[waypoint_r[0] % len(self.all_waypoints)]
+            s_end = self.waypoints_s[self.light_wp % len(self.all_waypoints)]
+            dist = abs(s_end - s_start)
+
+            # calculate estimated time interval of arrival
+            speed = self.last_vel.linear.x if self.last_vel is not None else 0
+
+            if self.jmt == None:
+                rospy.loginfo('Stopping at light: %d', self.light_wp)
+
+                accel = 0 # XXX assume 0 for now
+                ttl = (dist / speed)
+
+                # generate new jmt
+                rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)
+
+                """
+                jmts = JMT.search_jmts([s_start, speed, accel ], # start state
+                                       [s_end, 0, 0], # end state mean
+                                       [dist, 2, 2], # end state std dev
+                                       [speed, 10, 10], # max speed, accel, jerk
+                                       100, # number of samples
+                                       ttl,
+                                       0.1, # sampling rate
+                                       0.0 # time period deviation
+                                        )
+                                        
+                # take best one in terms of score
+                self.jmt = jmts[0]
+                                        
+                                        """
+
+                self.jmt = JMT([s_start, speed, accel], [s_end, 0, 0], ttl)
+
+                # JMT is not fully working... linearize for now
+                self.jmt.linearize(-speed/ttl)
+
+
+            for i in waypoint_r:
+                waypoint = self.all_waypoints[i % len(self.all_waypoints)]
+                waypoint_s = self.waypoints_s[i % len(self.all_waypoints)]
+                # adjust waypoints from current waypoint to light_wp (and beyond)
+                waypoint = copy.deepcopy(waypoint)  # deep copy waypoint to avoid changing velocity on source data
+                if i < self.light_wp:
+                    t = self.jmt.time_for_position(waypoint_s)
+                    waypoint.twist.twist.linear.x = self.jmt.speed(t)
+                    if first:
+                        rospy.loginfo('   wp: %d, speed %f, t %f, s %f', i, waypoint.twist.twist.linear.x, t, waypoint_s)
+                else:
+                    waypoint.twist.twist.linear.x = 0
+                waypointCmds.append(waypoint)
+
+        else:
+            if self.jmt is not None:
+                rospy.loginfo('Light is no longer red, moving forward')
+                self.jmt = None
+            for i in waypoint_r:
+                waypoint = self.all_waypoints[i % len(self.all_waypoints)]
+                waypointCmds.append(waypoint)
 
         final_lane = Lane()
         currtime = rospy.Time.now()
@@ -236,7 +318,7 @@ class WaypointUpdater(object):
         self.final_waypoints_pub.publish(final_lane)
 
     def loop(self):
-        rate = rospy.Rate(30)  # reduced from 40 to 1 due to perf issues
+        rate = rospy.Rate(self.loop_rate)
         while not rospy.is_shutdown():
             if (self.last_pose and self.all_waypoints):
                 self.publish_waypoints()

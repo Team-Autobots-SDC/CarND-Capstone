@@ -247,7 +247,6 @@ class TLDetector(object):
                     print("Traffic Light Predicted CORRECTLY: ")
                 else:
                     print("Traffic Light Predicted WRONG!!! ")
-                
             #time.sleep(5)
             return light_wp_index, light.state #state
 
