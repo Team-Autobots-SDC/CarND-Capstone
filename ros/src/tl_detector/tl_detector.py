@@ -241,8 +241,8 @@ class TLDetector(object):
         if light:
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
-            state = self.get_light_state(light)
             if self.light_classifier is not None:
+                state = self.get_light_state(light)
                 if light.state == state:
                     print("Traffic Light Predicted CORRECTLY: ")
                 else:
