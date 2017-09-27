@@ -225,6 +225,21 @@ class WaypointUpdater(object):
         position = self.last_pose
         min_i,min_h = self.get_closest_waypoint_index(position.position, position.orientation)
 
+        s, d = self.calculate_frenet(position.position, position.orientation)
+        x, y = self.getXY(s, d)
+        rospy.loginfo(
+            "Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f,  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f",
+            position.position.x,
+            position.position.y, position.orientation.z, position.orientation.w,
+            self.get_car_heading(position.orientation),
+            s, d, x, y,
+            min_i, self.all_waypoints[min_i].pose.pose.position.x,
+            self.all_waypoints[min_i].pose.pose.position.y,
+            self.all_waypoints[min_i].pose.pose.orientation.z,
+            self.all_waypoints[min_i].pose.pose.orientation.w,
+            self.get_car_heading(self.all_waypoints[min_i].pose.pose.orientation), min_h
+        )
+
         waypointCmds = []
 
         #rospy.logerr('Updating waypoints in range [%d-%d]', min_i, min_i + LOOKAHEAD_WPS)
