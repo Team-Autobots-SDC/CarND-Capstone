@@ -76,7 +76,7 @@ class JMT:
         t5 = t**5
 
         A = np.array([[t3, t4, t5],
-                      [3 * t2, 4 * t3, 5 * t4],
+                      [3 * t2, 4 * t4, 5 * t5],
                       [6 * t, 12 * t2, 20 * t3]])
 
         b = np.array([end[0] - (start[0] + start[1] * t + 0.5 * start[2] * t2),
