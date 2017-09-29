@@ -229,11 +229,11 @@ class WaypointUpdater(object):
         s, d = self.calculate_frenet(position.position, position.orientation)
         x, y = self.getXY(s, d)
         rospy.loginfo(
-            "Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f,  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f",
+            "Curpos %f,%f,%f,%f h:%f,s:%f, d:%f, cx:%f, cy: %f, sp: %f  next waypoint is %d: %f,%f,%f,%f h:%f diff:%f",
             position.position.x,
             position.position.y, position.orientation.z, position.orientation.w,
             self.get_car_heading(position.orientation),
-            s, d, x, y,
+            s, d, x, y, self.last_vel.linear.x,
             min_i, self.all_waypoints[min_i].pose.pose.position.x,
             self.all_waypoints[min_i].pose.pose.position.y,
             self.all_waypoints[min_i].pose.pose.orientation.z,
@@ -300,11 +300,11 @@ class WaypointUpdater(object):
                 if i < self.light_wp:
                     t = self.jmt.time_for_position(waypoint_s)
                     waypoint.twist.twist.linear.x = self.jmt.speed(t)
-                    if first:
-                        rospy.loginfo('   wp: %d, speed %f, t %f, s %f', i, waypoint.twist.twist.linear.x, t, waypoint_s)
                 else:
                     waypoint.twist.twist.linear.x = 0
                 waypointCmds.append(waypoint)
+                if first:
+                    rospy.loginfo('   wp: %d, speed %f, t %f, s %f', i, waypoint.twist.twist.linear.x, t, waypoint_s)
 
         else:
             if self.jmt is not None:
