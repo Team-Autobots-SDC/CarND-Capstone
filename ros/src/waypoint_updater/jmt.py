@@ -4,7 +4,8 @@
 
 import numpy as np
 import rospy
-
+import matplotlib.pyplot as plt
+import time
 
 def permute_parameter(center, offset, inc, useHigh, useLow, func):
     """
@@ -30,14 +31,12 @@ def permute_parameter(center, offset, inc, useHigh, useLow, func):
         mult = ((factor + 1) / 2) if useHigh and useLow else factor
 
         p = center + mult * sign * inc
-
-        if func(p):
+        if p > 0 and func(p):
             return True
 
         factor += 1
 
     return False
-
 
 class JMT:
 
@@ -153,6 +152,7 @@ class JMT:
             accel = jmt.accel(t)
             if abs(accel) > limits[1]:
                 failedConstraint = True
+                rospy.loginfo("failed accel constraint")
                 break
             t += dt
 
@@ -162,6 +162,7 @@ class JMT:
             speed = jmt.speed(t)
             if abs(speed) > limits[0]:
                 failedConstraint = True
+                rospy.loginfo("failed speed constraint, {} vs {}".format(speed, limits[0]))
                 break
             t += dt
 
@@ -170,6 +171,7 @@ class JMT:
         while t < dT and not failedConstraint:
             jerk = jmt.jerk(t)
             if abs(jerk) > limits[2]:
+                rospy.loginfo("failed jerk constraint")
                 failedConstraint = True
                 break
             t += dt
@@ -193,21 +195,26 @@ class JMT:
 
         def func(time_interval):
             pdf = np.array([
-                np.random.normal(meanEnd[0], stdDeviation[0], size=numberOfStateSamples),
+                np.random.uniform(meanEnd[0] - stdDeviation[0], meanEnd[0], size=numberOfStateSamples),
                 np.random.normal(meanEnd[1], stdDeviation[1], size=numberOfStateSamples),
                 np.random.normal(meanEnd[2], stdDeviation[2], size=numberOfStateSamples)
             ])
 
-            #rospy.loginfo("search: pdf {}".format(pdf))
+            # rospy.loginfo("search: pdf {}".format(pdf))
+            rospy.loginfo("PDF for time interal: {} ".format(time_interval))
+
 
             if time_interval > 0:
 
                 for i in range(0, numberOfStateSamples):
                     end = pdf[:,i]
 
-                    #rospy.loginfo("search: start {}, end {}".format(start, end))
+                    rospy.loginfo("search: start {}, end {}".format(start, end))
+
 
                     jmt = JMT(start, end, time_interval)
+
+                    rospy.loginfo("search: start {}, end {}, found : {}".format(start, end, jmt.params))
 
                     if end[1] >= 0 and JMT.validate(jmt, limits, time_interval, dt):
                         jmt.cost = JMT.cost_function(meanEnd, end)
@@ -218,6 +225,33 @@ class JMT:
 
         permute_parameter(dT, dvT, dt, True, True, func)
 
+        # print("Found {} jmts".format(len(map)))
         rospy.loginfo("search: jmts found {}".format(len(map)))
 
         return sorted(map.values(), key=map.get)
+
+def test():
+    start = [10,5,0]
+    meanend = [50,0,0]
+    meansd = [1,0,2]
+    limits = [20, 10, 10]
+    print 'searching JMTs'
+    t = 10
+    s = time.time()
+    j = JMT.search_jmts(start,meanend,meansd, limits, 20, t, 1, 4)
+    print(time.time() - s)
+    figt = np.arange(0,t,0.1)
+    plt.figure(1)
+    pi = 1
+    for i in j:
+        print i.params
+        if pi > 5:
+            break
+        i.params.reverse()
+        plt.subplot(5, 1, pi)
+        plt.plot(figt,np.polyval(i.params, figt),)
+        pi += 1
+    plt.show()
+
+if __name__ == "__main__":
+    test()

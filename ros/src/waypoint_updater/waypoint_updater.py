@@ -26,6 +26,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
 MAX_SEARCH_WPS = 100
+SAFE_JMT_MAX_SPEED = 5
 
 class WaypointUpdater(object):
     all_waypoints = None
@@ -258,35 +259,37 @@ class WaypointUpdater(object):
             # calculate estimated time interval of arrival
             speed = self.last_vel.linear.x if self.last_vel is not None else 0
 
+            # this is needed to start the car gracefull in reall low speeds (for eg in the beginning)
+            max_jmt_speed = max(SAFE_JMT_MAX_SPEED, speed)
+
             if self.jmt == None:
                 rospy.loginfo('Stopping at light: %d', self.light_wp)
 
                 accel = 0 # XXX assume 0 for now
-                ttl = (dist / speed)
-
+                ttl = (dist / max_jmt_speed)
                 # generate new jmt
                 rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)
 
-                """
                 jmts = JMT.search_jmts([s_start, speed, accel ], # start state
                                        [s_end, 0, 0], # end state mean
-                                       [dist, 2, 2], # end state std dev
-                                       [speed, 10, 10], # max speed, accel, jerk
-                                       100, # number of samples
+                                       [4, 0, 0], # end state std dev
+                                       [max_jmt_speed, 10, 10], # max speed, accel, jerk
+                                       20, # number of samples
                                        ttl,
-                                       0.1, # sampling rate
-                                       0.0 # time period deviation
+                                       1, # sampling rate
+                                       15 # time period deviation
                                         )
                                         
                 # take best one in terms of score
-                self.jmt = jmts[0]
-                                        
-                                        """
+                if (jmts):
+                    self.jmt = jmts[0]
+                else:
+                    rospy.loginfo("couldnt find any jmt! hopefully next iteration!")
 
-                self.jmt = JMT([s_start, speed, accel], [s_end, 0, 0], ttl)
+                # self.jmt = JMT([s_start, speed, accel], [s_end, 0, 0], ttl)
 
                 # JMT is not fully working... linearize for now
-                self.jmt.linearize(-speed/ttl)
+                # self.jmt.linearize(-speed/ttl)
 
 
             for i in waypoint_r:
@@ -320,7 +323,7 @@ class WaypointUpdater(object):
     def loop(self):
         rate = rospy.Rate(self.loop_rate)
         while not rospy.is_shutdown():
-            if (self.last_pose and self.all_waypoints):
+            if (self.last_pose and self.all_waypoints and self.last_vel):
                 self.publish_waypoints()
             rate.sleep()
 
