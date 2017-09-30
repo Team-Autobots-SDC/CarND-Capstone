@@ -171,7 +171,7 @@ class WaypointUpdater(object):
 
     def getXY(self, s, d):
         prev_wp = -1
-        while s > self.waypoints_s[prev_wp+1] and prev_wp < (len(self.waypoints_s)-1):
+        while (prev_wp < (len(self.waypoints_s)-1)) and (s > self.waypoints_s[prev_wp+1]):
             prev_wp += 1
         next_wp = (prev_wp+1) % len(self.waypoints_s)
         next_wp_pos = self.all_waypoints[next_wp].pose.pose.position
