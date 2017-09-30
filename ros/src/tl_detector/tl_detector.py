@@ -94,7 +94,7 @@ class TLDetector(object):
             self.state = state
         elif self.state_count >= STATE_COUNT_THRESHOLD:
             self.last_state = self.state
-            light_wp = light_wp if state == TrafficLight.RED else -1
+            light_wp = light_wp if (state == TrafficLight.RED or state == TrafficLight.YELLOW) else -1
             self.last_wp = light_wp
             self.upcoming_red_light_pub.publish(Int32(light_wp))
         else:
@@ -237,6 +237,8 @@ class TLDetector(object):
 
             if closest_light_index != None: 
                 light = self.get_closest_traffic_light(stop_line_positions[closest_light_index])
+                light.pose.pose.position.x = stop_line_positions[closest_light_index][0]
+                light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
             
         if light:
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
