@@ -237,6 +237,8 @@ class TLDetector(object):
 
             if closest_light_index != None: 
                 light = self.get_closest_traffic_light(stop_line_positions[closest_light_index])
+                light.pose.pose.position.x = stop_line_positions[closest_light_index][0]
+                light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
             
         if light:
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
