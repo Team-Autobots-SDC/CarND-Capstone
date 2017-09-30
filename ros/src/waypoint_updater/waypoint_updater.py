@@ -304,7 +304,8 @@ class WaypointUpdater(object):
                     waypoint.twist.twist.linear.x = 0
                 waypointCmds.append(waypoint)
                 if first:
-                    rospy.loginfo('   wp: %d, speed %f, t %f, s %f', i, waypoint.twist.twist.linear.x, t, waypoint_s)
+                    rospy.loginfo('   wp: %d, speed %f, x:%f,y:%f, t %f, s %f', i, waypoint.twist.twist.linear.x,
+                                  waypoint.pose.pose.position.x, waypoint.pose.pose.position.y,  t, waypoint_s)
 
         else:
             if self.jmt is not None:
