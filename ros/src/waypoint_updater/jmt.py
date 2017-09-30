@@ -152,7 +152,7 @@ class JMT:
             accel = jmt.accel(t)
             if abs(accel) > limits[1]:
                 failedConstraint = True
-                rospy.loginfo("failed accel constraint")
+                # rospy.loginfo("failed accel constraint")
                 break
             t += dt
 
@@ -162,7 +162,7 @@ class JMT:
             speed = jmt.speed(t)
             if abs(speed) > limits[0]:
                 failedConstraint = True
-                rospy.loginfo("failed speed constraint, {} vs {}".format(speed, limits[0]))
+                # rospy.loginfo("failed speed constraint, {} vs {}".format(speed, limits[0]))
                 break
             t += dt
 
@@ -171,7 +171,7 @@ class JMT:
         while t < dT and not failedConstraint:
             jerk = jmt.jerk(t)
             if abs(jerk) > limits[2]:
-                rospy.loginfo("failed jerk constraint")
+                # rospy.loginfo("failed jerk constraint")
                 failedConstraint = True
                 break
             t += dt
@@ -182,10 +182,11 @@ class JMT:
     def cost_function(target, estimate):
         # we mostly care about the speed
         SPEED_WEIGHT = 5.0
+        ACCEL_WEIGHT = 5.0
         posDiff = target[0] - estimate[0]
         speedDiff = target[1] - estimate[1]
         accelDiff = target[2] - estimate[2]
-        return speedDiff * speedDiff * SPEED_WEIGHT + posDiff * posDiff + accelDiff * accelDiff
+        return speedDiff * speedDiff * SPEED_WEIGHT + posDiff * posDiff + accelDiff * accelDiff * ACCEL_WEIGHT
 
     @staticmethod
     def search_jmts(start, meanEnd, stdDeviation, limits, numberOfStateSamples, dT, dt, dvT):
@@ -209,12 +210,12 @@ class JMT:
                 for i in range(0, numberOfStateSamples):
                     end = pdf[:,i]
 
-                    rospy.loginfo("search: start {}, end {}".format(start, end))
+                    # rospy.loginfo("search: start {}, end {}".format(start, end))
 
 
                     jmt = JMT(start, end, time_interval)
 
-                    rospy.loginfo("search: start {}, end {}, found : {}".format(start, end, jmt.params))
+                    # rospy.loginfo("search: start {}, end {}, found : {}".format(start, end, jmt.params))
 
                     if end[1] >= 0 and JMT.validate(jmt, limits, time_interval, dt):
                         jmt.cost = JMT.cost_function(meanEnd, end)
