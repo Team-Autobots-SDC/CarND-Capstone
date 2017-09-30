@@ -216,7 +216,7 @@ class TLDetector(object):
             waypoint_index_closest_to_car_position = self.get_closest_waypoint(self.pose.pose)
             
             current_wp_pose = self.waypoints.waypoints[waypoint_index_closest_to_car_position]
-            # print("Closest WP to Car POSE: ", current_wp_pose.pose.pose)
+            #rospy.loginfo("Closest WP to Car position: {}".format(current_wp_pose.pose.pose.position))
             #TODO find the closest visible traffic light (if one exists)
             buffer_space_in_meters = 50
 
@@ -230,7 +230,7 @@ class TLDetector(object):
                 if (abs(car_position.x-light_x) < buffer_space_in_meters): #and traffic light is facing us.
                     dist = dl(current_wp_pose.pose.pose.position, light_position)
                     if dist < 50 and dist < min_light_dist:
-                        #print("Found a close Traffic Light: ", light_position)
+                        #rospy.loginfo("Found a close Traffic Light: {}".format(light_position))
                         min_light_dist = dist
                         closest_light_index = index
 
@@ -241,6 +241,9 @@ class TLDetector(object):
                 light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
             
         if light:
+            #dl = lambda a, b: math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+            #dist = dl(light.pose.pose.position, current_wp_pose.pose.pose.position)
+            #rospy.loginfo("Traffic Light  at: {}, dist {}".format(light.pose.pose.position, dist))
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
             if self.light_classifier is not None:

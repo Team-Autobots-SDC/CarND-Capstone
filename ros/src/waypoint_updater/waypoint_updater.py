@@ -271,7 +271,7 @@ class WaypointUpdater(object):
                 rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)
 
                 jmts = JMT.search_jmts([s_start, speed, accel ], # start state
-                                       [s_end, 0, 0], # end state mean
+                                       [s_end - 2, 0, 0], # end state mean
                                        [4, 0, 0], # end state std dev
                                        [max_jmt_speed, 10, 10], # max speed, accel, jerk
                                        20, # number of samples
