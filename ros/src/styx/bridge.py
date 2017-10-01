@@ -38,11 +38,15 @@ TYPE = {
 class Bridge(object):
     def __init__(self, conf, server):
         rospy.init_node('styx_server')
+
+        self.image_capture_interval = 1. / rospy.get_param('~capture_rate', 5.)
+
         self.server = server
         self.vel = 0.
         self.yaw = None
         self.angular_vel = 0.
         self.bridge = CvBridge()
+        self.last_image_capture_time = rospy.get_rostime()
 
         self.callbacks = {
             '/vehicle/steering_cmd': self.callback_steering,
@@ -173,12 +177,18 @@ class Bridge(object):
         self.publishers['dbw_status'].publish(Bool(data))
 
     def publish_camera(self, data):
-        imgString = data["image"]
-        image = PIL_Image.open(BytesIO(base64.b64decode(imgString)))
-        image_array = np.asarray(image)
 
-        image_message = self.bridge.cv2_to_imgmsg(image_array, encoding="rgb8")
-        self.publishers['image'].publish(image_message)
+        t = rospy.get_rostime()
+
+        if t.to_sec() - self.last_image_capture_time.to_sec() >= self.image_capture_interval:
+            imgString = data["image"]
+            image = PIL_Image.open(BytesIO(base64.b64decode(imgString)))
+            image_array = np.asarray(image)
+
+            image_message = self.bridge.cv2_to_imgmsg(image_array, encoding="rgb8")
+            self.publishers['image'].publish(image_message)
+
+            self.last_image_capture_time = t
 
     def callback_steering(self, data):
         self.server('steer', data={'steering_angle': str(data.steering_wheel_angle_cmd)})
