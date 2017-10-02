@@ -262,7 +262,7 @@ class WaypointUpdater(object):
                 rospy.loginfo('Stopping at light: %d', self.light_wp)
 
                 accel = 0 # XXX assume 0 for now
-                ttl = (dist / speed)
+                ttl = (dist / speed) * 1.5 # 1.5 is magic number to allow the car to get closer to the stop line
 
                 # generate new jmt
                 rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)
