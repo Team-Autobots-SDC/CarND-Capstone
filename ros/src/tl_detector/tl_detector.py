@@ -4,10 +4,13 @@ from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import TrafficLightArray, TrafficLight
 from styx_msgs.msg import Lane
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
+from image_geometry.cameramodels import PinholeCameraModel
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
 import tf
+import numpy as np
+import matplotlib.image as mpimg
 import cv2
 import yaml
 import math
@@ -29,10 +32,10 @@ class TLDetector(object):
         self.light_classifier = None
         self.listener = None
 
-        if use_inference:
-            self.bridge = CvBridge()
-            self.light_classifier = TLClassifier()
-            self.listener = tf.TransformListener()
+        self.bridge = CvBridge()
+        self.listener = tf.TransformListener()
+
+        self.light_classifier = True #TLClassifier()
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -125,7 +128,7 @@ class TLDetector(object):
 
         return closest_wp_index
 
-    def project_to_image_plane(self, point_in_world):
+    def project_to_image_plane(self, point_in_world, timestamp):
         """Project point from 3D world coordinates to 2D camera image location
 
         Args:
@@ -137,29 +140,88 @@ class TLDetector(object):
 
         """
 
+        camera_info = CameraInfo()
+
         fx = self.config['camera_info']['focal_length_x']
         fy = self.config['camera_info']['focal_length_y']
-        image_width = self.config['camera_info']['image_width']
-        image_height = self.config['camera_info']['image_height']
+
+        camera_info.width = self.config['camera_info']['image_width']
+        camera_info.height = self.config['camera_info']['image_height']
+
+        #print("fx {}, fy {}".format(fx, fy))
+
+        camera_info.K = np.array([[fx, 0, camera_info.width / 2],
+                                  [0, fy, camera_info.height / 2],
+                                  [0, 0, 1.]], dtype=np.float32)
+        camera_info.P = np.array([[fx, 0, camera_info.width / 2, 0],
+                                  [0, fy, camera_info.height / 2, 0],
+                                  [0, 0, 1., 0]])
+        camera_info.R = np.array([[1., 0, 0],
+                                  [0, 1., 0],
+                                  [0, 0, 1.]], dtype=np.float32)
+
+        camera = PinholeCameraModel()
+        camera.fromCameraInfo(camera_info)
+
+        #print("point_in_world = {}".format(str(point_in_world)))
+        #print("camera projection matrix ", camera.P)
 
         # get transform between pose of camera and world frame
         trans = None
+        point_in_camera_space = None
+        point_in_image = None
+        bbox_points_camera_image = []
+
+        euler_transforms = (
+            math.radians(90),  # roll along X to force Y axis 'up'
+            math.radians(-90 + -.75),  # pitch along Y to force X axis towards 'right', with slight adjustment for camera's 'yaw'
+            math.radians(-9)  # another roll to orient the camera slightly 'upwards', (camera's 'pitch')
+        )
+        euler_axes = 'sxyx'
+
         try:
-            now = rospy.Time.now()
             self.listener.waitForTransform("/base_link",
-                  "/world", now, rospy.Duration(1.0))
+                  "/world", timestamp, rospy.Duration(0.1))
             (trans, rot) = self.listener.lookupTransform("/base_link",
-                  "/world", now)
+                  "/world", timestamp)
+
+            camera_orientation_adj = tf.transformations.quaternion_from_euler(*euler_transforms, axes=euler_axes)
+
+            trans_matrix = self.listener.fromTranslationRotation(trans, rot)
+            camera_orientation_adj = self.listener.fromTranslationRotation((0, 0, 0), camera_orientation_adj)
+
+            #print("trans {}, rot {}".format(trans, rot))
+            #print("transform matrix {}".format(trans_matrix))
+
+            point = np.array([point_in_world.x, point_in_world.y, point_in_world.z, 1.0])
+
+            # this point should match what you'd see from being inside the vehicle looking straight ahead.
+            point_in_camera_space = trans_matrix.dot(point)
+
+            #print("point in camera frame {}".format(point_in_camera_space))
+
+            final_trans_matrix = camera_orientation_adj.dot(trans_matrix)
+
+            # this point is from the view point of the camera (oriented along the camera's rotation quaternion)
+            point_in_camera_space = final_trans_matrix.dot(point)
+
+            #print("point in camera frame adj {}".format(point_in_camera_space))
 
         except (tf.Exception, tf.LookupException, tf.ConnectivityException):
             rospy.logerr("Failed to find camera to map transform")
 
-        #TODO Use tranform and rotation to calculate 2D position of light in image
+        bbox_points = [(point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
+                       (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0),
+                       (point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
+                       (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0)]
 
-        x = 0
-        y = 0
+        # these points represent the bounding box within the camera's image
+        for p in bbox_points:
+            bbox_points_camera_image.append(camera.project3dToPixel(p))
 
-        return (x, y)
+        #print("point in image {}".format(bbox_points_camera_image))
+
+        return bbox_points_camera_image
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -175,14 +237,28 @@ class TLDetector(object):
             self.prev_light_loc = None
             return False
 
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-
-        x, y = self.project_to_image_plane(light.pose.pose.position)
+        pts = self.project_to_image_plane(light.pose.pose.position, self.camera_image.header.stamp)
 
         #TODO use light location to zoom in on traffic light in image
+        #print('p1 {}, p2 {}, img shape {}'.format(pts[0], pts[3], cv_image.shape))
+        #cv2.rectangle(cv_image, (int(pts[0][0]), int(pts[0][1])), (int(pts[3][0]), int(pts[3][1])), (255, 255, 255), 5)
+        #mpimg.imsave('tl_detected.png', cv_image, origin='upper')
+
+        pts = np.array(pts, dtype=np.int)
+        img_shape = (self.config['camera_info']['image_width'], self.config['camera_info']['image_height'])
+
+        state = TrafficLight.UNKNOWN
+
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+        light_pixels = cv_image[min(max(0, pts[0][1]), img_shape[1]):min(max(0, pts[3][1]), img_shape[1]),
+                                min(max(0, pts[0][0]), img_shape[0]):min(max(0, pts[3][0]), img_shape[0]),
+                                :]
+        if len(light_pixels) > 0:
+            light_pixels_r = light_pixels[0]
+            state = TrafficLight.RED if len(np.where(light_pixels_r > 220)) else TrafficLight.UNKNOWN
 
         #Get classification
-        return self.light_classifier.get_classification(cv_image)
+        return state
 
     def get_closest_traffic_light(self, light_position):
         if (not self.lights):
@@ -237,8 +313,8 @@ class TLDetector(object):
 
             if closest_light_index != None: 
                 light = self.get_closest_traffic_light(stop_line_positions[closest_light_index])
-                light.pose.pose.position.x = stop_line_positions[closest_light_index][0]
-                light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
+                #light.pose.pose.position.x = stop_line_positions[closest_light_index][0]
+                #light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
             
         if light:
             light_wp_index = self.get_closest_waypoint(light.pose.pose)
