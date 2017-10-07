@@ -78,17 +78,15 @@ class FRCNNClassifier(object):
           endx = int(xmax * image.shape[1])
           starty = int(ymin * image.shape[0])
           endy = int(ymax * image.shape[0])
-          print (
-          'acc score: {} return x: {},{} y: {},{} shape: {}'.format(scores[i], startx, endx, starty, endy, image.shape))
+          # print (
+          # 'acc score: {} return x: {},{} y: {},{} shape: {}'.format(scores[i], startx, endx, starty, endy, image.shape))
           image_to_ret = image[starty: endy, startx:endx, :]
-        else:
-          print (
-          'rej score: {} return x: {},{} y: {},{} shape: {}'.format(scores[i], startx, endx, starty, endy, image.shape))
+
     if (image_to_ret is None):
       print ('couldnt find light!')
     return image_to_ret
 
-  def get_classification(self, image):
+  def get_classification(self, image, debug=False):
     # Definite input and output Tensors for detection_graph
     with self.detection_graph.as_default():
       image_tensor = self.detection_graph.get_tensor_by_name('image_tensor:0')
@@ -121,22 +119,18 @@ class FRCNNClassifier(object):
     if (light is not None):
       state, values = self.get_light_state(light)
     print state
-    cv2.putText(image_np, str(state), (230, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2, cv2.LINE_AA)
-    # print ct.get_palette(color_count=10)
-    # print image.getcolors(5000)
 
-    # plt.imshow(light)
-    # plt.show()
-    vis_util.visualize_boxes_and_labels_on_image_array(
-        image_np,
-        np.squeeze(boxes),
-        np.squeeze(classes).astype(np.int32),
-        np.squeeze(scores),
-        {},
-        use_normalized_coordinates=True,
-        line_thickness=4,
-        min_score_thresh=0.5)
-    if (True):
+    if (debug):
+      cv2.putText(image_np, str(state), (230, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2, cv2.LINE_AA)
+      vis_util.visualize_boxes_and_labels_on_image_array(
+          image_np,
+          np.squeeze(boxes),
+          np.squeeze(classes).astype(np.int32),
+          np.squeeze(scores),
+          {},
+          use_normalized_coordinates=True,
+          line_thickness=4,
+          min_score_thresh=0.5)
       plt.imshow(image_np)
       plt.show()
     return state
@@ -146,5 +140,5 @@ if __name__ == '__main__':
     for file in sorted(glob.glob('/home/faraz/camera/*.png')):
       image = cv2.imread(file)
       image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-      print(a.get_classification(image))
+      print(a.get_classification(image, True))
 
