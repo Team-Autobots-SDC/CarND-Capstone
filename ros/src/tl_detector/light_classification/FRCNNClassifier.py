@@ -1,7 +1,6 @@
 import numpy as np
 import tarfile
 import tensorflow as tf
-import urllib2
 import pathlib
 import time
 import cv2
