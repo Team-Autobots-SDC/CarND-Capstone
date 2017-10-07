@@ -98,12 +98,7 @@ class FRCNNClassifier(object):
       detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
       num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')
     start = time.time()
-    # image = Image.open(image_path)
     image_np = np.array(image)
-    # image = image.resize((1200,900))
-    # the array based representation of the image will be used later in order to prepare the
-    # result image with boxes and labels on it.
-    # image_np = load_image_into_numpy_array(image)
     # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
     image_np_expanded = np.expand_dims(image_np, axis=0)
     # Actual detection.
@@ -119,6 +114,7 @@ class FRCNNClassifier(object):
     if (light is not None):
       state, values = self.get_light_state(light)
     print state
+    diff3 = time.time() - start
 
     if (debug):
       cv2.putText(image_np, str(state), (230, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2, cv2.LINE_AA)
@@ -131,8 +127,10 @@ class FRCNNClassifier(object):
           use_normalized_coordinates=True,
           line_thickness=4,
           min_score_thresh=0.5)
+      print ('Time taken: {} {} {} '.format(diff1, diff2, diff3))
       plt.imshow(image_np)
       plt.show()
+
     return state
 
 if __name__ == '__main__':
