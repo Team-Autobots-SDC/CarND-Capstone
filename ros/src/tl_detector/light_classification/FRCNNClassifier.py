@@ -2,10 +2,7 @@ import numpy as np
 import tarfile
 import tensorflow as tf
 import urllib2
-from matplotlib import pyplot as plt
 import pathlib
-from utils import visualization_utils as vis_util
-# from utils import label_map_util
 import time
 import cv2
 import os
@@ -15,7 +12,6 @@ from styx_msgs.msg import TrafficLight
 
 MODEL_URL='http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz'
 MODEL_NAME='./faster_rcnn_resnet101_coco_11_06_2017'
-# MODEL_NAME='./bosch-1class-70k'
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
 PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
 
@@ -117,6 +113,9 @@ class FRCNNClassifier(object):
     diff3 = time.time() - start
 
     if (debug):
+      from matplotlib import pyplot as plt
+      from utils import visualization_utils as vis_util
+
       cv2.putText(image_np, str(state), (230, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2, cv2.LINE_AA)
       vis_util.visualize_boxes_and_labels_on_image_array(
           image_np,
