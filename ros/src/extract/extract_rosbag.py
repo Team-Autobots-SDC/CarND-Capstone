@@ -72,7 +72,7 @@ def main():
                 last_topic_time[topic] = t.to_sec()
 
                 if not args.quiet:
-                    extractor.print_msg(msgType, topic, msg, t)
+                    extractor.print_msg(msgType, topic, msg, t, startsec)
                 if args.display or output_dir:
                     extractor.handle_msg(msgType, topic, msg, t)
 
