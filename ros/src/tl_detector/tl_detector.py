@@ -249,13 +249,50 @@ class TLDetector(object):
 
         state = TrafficLight.UNKNOWN
 
+        now = time.time()
+
+        diff = (light.header.stamp - self.camera_image.header.stamp)
+        #print("image ros time diff {}".format(diff))
+
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+
+        now_1 = time.time()
+
+        #print("time to load cv2: ", now_1 - now)
+
+        pixel_now = time.time()
+
         light_pixels = cv_image[min(max(0, pts[0][1]), img_shape[1]):min(max(0, pts[3][1]), img_shape[1]),
                                 min(max(0, pts[0][0]), img_shape[0]):min(max(0, pts[3][0]), img_shape[0]),
                                 :]
         if len(light_pixels) > 0:
-            light_pixels_r = light_pixels[0]
-            state = TrafficLight.RED if len(np.where(light_pixels_r > 220)) else TrafficLight.UNKNOWN
+
+            light_pixels = cv2.cvtColor(light_pixels, cv2.COLOR_RGB2HSV)[:, :, 1]  # we only test with S channel
+
+            #mpimg.imsave('tl_detected.png', light_pixels, cmap='gray', origin='upper')
+
+            states = [TrafficLight.RED, TrafficLight.YELLOW, TrafficLight.GREEN]
+            shape = light_pixels.shape
+            split_h = shape[0] / len(states)
+
+            #print("split_h = ", split_h)
+
+            best_score = 0
+
+            for i, light_state in enumerate(states):
+                light_segment = light_pixels[i*split_h:(i+1)*split_h, :]
+                #print("shape= ", light_segment.shape)
+                #print(np.where(light_segment > 100))
+                score = len(np.where(light_segment > 200)[0])
+
+                #print("index {}, state {}, score {}".format(i, light_state, score))
+                if score > best_score:
+                    state = light_state
+                    best_score = score
+
+        pixel_now_1 = time.time()
+
+        #print("time to classify: ", pixel_now_1 - pixel_now)
 
         #Get classification
         return state
@@ -287,6 +324,7 @@ class TLDetector(object):
 
         """
         light = None
+        light_pose = Pose()
         stop_line_positions = self.config['stop_line_positions']
         if(self.pose and self.waypoints):
             waypoint_index_closest_to_car_position = self.get_closest_waypoint(self.pose.pose)
@@ -313,12 +351,13 @@ class TLDetector(object):
 
             if closest_light_index != None: 
                 light = self.get_closest_traffic_light(stop_line_positions[closest_light_index])
-                #light.pose.pose.position.x = stop_line_positions[closest_light_index][0]
-                #light.pose.pose.position.y = stop_line_positions[closest_light_index][1]
+                light_pose.position.x = stop_line_positions[closest_light_index][0]
+                light_pose.position.y = stop_line_positions[closest_light_index][1]
             
         if light:
-            light_wp_index = self.get_closest_waypoint(light.pose.pose)
+            light_wp_index = self.get_closest_waypoint(light_pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
+            state = light.state
             if self.light_classifier is not None:
                 state = self.get_light_state(light)
                 if light.state == state:
@@ -326,7 +365,9 @@ class TLDetector(object):
                 else:
                     print("Traffic Light Predicted WRONG!!! ")
             #time.sleep(5)
-            return light_wp_index, light.state #state
+
+            print("light state {}, predicted {}".format(light.state, state))
+            return light_wp_index, state
 
         return -1, TrafficLight.UNKNOWN
 
