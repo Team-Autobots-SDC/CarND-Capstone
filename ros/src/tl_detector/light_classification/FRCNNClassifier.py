@@ -133,7 +133,7 @@ class FRCNNClassifier(object):
 
 if __name__ == '__main__':
     a = FRCNNClassifier()
-    for file in sorted(glob.glob('/home/faraz/camera/*.png')):
+    for file in sorted(glob.glob('./camera/*.png')):
       image = cv2.imread(file)
       image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
       print(a.get_classification(image, True))
