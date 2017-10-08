@@ -5,12 +5,10 @@ from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import TrafficLightArray, TrafficLight
 from styx_msgs.msg import Lane
 from sensor_msgs.msg import Image, CameraInfo
-from image_geometry.cameramodels import PinholeCameraModel
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
-import tf
+from light_classification.camera_project_classifier import CameraProjectionClassifier
 import numpy as np
-import matplotlib.image as mpimg
 import cv2
 import yaml
 import math
@@ -23,19 +21,23 @@ class TLDetector(object):
         rospy.init_node('tl_detector')
 
         use_inference = rospy.get_param('~use_inference', True)
-        print("TL DETECTOR BOOTING UP: use inference = {}".format(use_inference))
+        print("TL DETECTOR BOOTING UP: use inference (CNN model) = {}".format(use_inference))
+
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
         self.pose = None
         self.waypoints = None
         self.camera_image = None
         self.lights = []
         self.bridge = None
-        self.light_classifier = None
-        self.listener = None
 
         self.bridge = CvBridge()
-        self.listener = tf.TransformListener()
 
-        self.light_classifier = True #TLClassifier()
+        if use_inference:
+            self.light_classifier = TLClassifier()
+        else:
+            self.light_classifier = CameraProjectionClassifier(self.config)
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -49,9 +51,6 @@ class TLDetector(object):
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
-
-        config_string = rospy.get_param("/traffic_light_config")
-        self.config = yaml.load(config_string)
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
@@ -128,101 +127,6 @@ class TLDetector(object):
 
         return closest_wp_index
 
-    def project_to_image_plane(self, point_in_world, timestamp):
-        """Project point from 3D world coordinates to 2D camera image location
-
-        Args:
-            point_in_world (Point): 3D location of a point in the world
-
-        Returns:
-            x (int): x coordinate of target point in image
-            y (int): y coordinate of target point in image
-
-        """
-
-        camera_info = CameraInfo()
-
-        fx = self.config['camera_info']['focal_length_x']
-        fy = self.config['camera_info']['focal_length_y']
-
-        camera_info.width = self.config['camera_info']['image_width']
-        camera_info.height = self.config['camera_info']['image_height']
-
-        #print("fx {}, fy {}".format(fx, fy))
-
-        camera_info.K = np.array([[fx, 0, camera_info.width / 2],
-                                  [0, fy, camera_info.height / 2],
-                                  [0, 0, 1.]], dtype=np.float32)
-        camera_info.P = np.array([[fx, 0, camera_info.width / 2, 0],
-                                  [0, fy, camera_info.height / 2, 0],
-                                  [0, 0, 1., 0]])
-        camera_info.R = np.array([[1., 0, 0],
-                                  [0, 1., 0],
-                                  [0, 0, 1.]], dtype=np.float32)
-
-        camera = PinholeCameraModel()
-        camera.fromCameraInfo(camera_info)
-
-        #print("point_in_world = {}".format(str(point_in_world)))
-        #print("camera projection matrix ", camera.P)
-
-        # get transform between pose of camera and world frame
-        trans = None
-        point_in_camera_space = None
-        point_in_image = None
-        bbox_points_camera_image = []
-
-        euler_transforms = (
-            math.radians(90),  # roll along X to force Y axis 'up'
-            math.radians(-90 + -.75),  # pitch along Y to force X axis towards 'right', with slight adjustment for camera's 'yaw'
-            math.radians(-9)  # another roll to orient the camera slightly 'upwards', (camera's 'pitch')
-        )
-        euler_axes = 'sxyx'
-
-        try:
-            self.listener.waitForTransform("/base_link",
-                  "/world", timestamp, rospy.Duration(0.1))
-            (trans, rot) = self.listener.lookupTransform("/base_link",
-                  "/world", timestamp)
-
-            camera_orientation_adj = tf.transformations.quaternion_from_euler(*euler_transforms, axes=euler_axes)
-
-            trans_matrix = self.listener.fromTranslationRotation(trans, rot)
-            camera_orientation_adj = self.listener.fromTranslationRotation((0, 0, 0), camera_orientation_adj)
-
-            #print("trans {}, rot {}".format(trans, rot))
-            #print("transform matrix {}".format(trans_matrix))
-
-            point = np.array([point_in_world.x, point_in_world.y, point_in_world.z, 1.0])
-
-            # this point should match what you'd see from being inside the vehicle looking straight ahead.
-            point_in_camera_space = trans_matrix.dot(point)
-
-            #print("point in camera frame {}".format(point_in_camera_space))
-
-            final_trans_matrix = camera_orientation_adj.dot(trans_matrix)
-
-            # this point is from the view point of the camera (oriented along the camera's rotation quaternion)
-            point_in_camera_space = final_trans_matrix.dot(point)
-
-            #print("point in camera frame adj {}".format(point_in_camera_space))
-
-        except (tf.Exception, tf.LookupException, tf.ConnectivityException):
-            rospy.logerr("Failed to find camera to map transform")
-
-        bbox_points = [(point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
-                       (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0),
-                       (point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
-                       (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0)]
-
-        # these points represent the bounding box within the camera's image
-        for p in bbox_points:
-            bbox_points_camera_image.append(camera.project3dToPixel(p))
-
-        #print("point in image {}".format(bbox_points_camera_image))
-
-        return bbox_points_camera_image
-
     def get_light_state(self, light):
         """Determines the current color of the traffic light
 
@@ -237,7 +141,7 @@ class TLDetector(object):
             self.prev_light_loc = None
             return False
 
-        pts = self.project_to_image_plane(light.pose.pose.position, self.camera_image.header.stamp)
+        pts = self.light_classifier.extract_bounding_box(self.camera_image, light)
 
         #TODO use light location to zoom in on traffic light in image
         #print('p1 {}, p2 {}, img shape {}'.format(pts[0], pts[3], cv_image.shape))
@@ -248,20 +152,7 @@ class TLDetector(object):
         img_shape = (self.config['camera_info']['image_width'], self.config['camera_info']['image_height'])
 
         state = TrafficLight.UNKNOWN
-
-        now = time.time()
-
-        diff = (light.header.stamp - self.camera_image.header.stamp)
-        #print("image ros time diff {}".format(diff))
-
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
-
-        now_1 = time.time()
-
-        #print("time to load cv2: ", now_1 - now)
-
-        pixel_now = time.time()
-
         light_pixels = cv_image[min(max(0, pts[0][1]), img_shape[1]):min(max(0, pts[3][1]), img_shape[1]),
                                 min(max(0, pts[0][0]), img_shape[0]):min(max(0, pts[3][0]), img_shape[0]),
                                 :]
@@ -289,10 +180,6 @@ class TLDetector(object):
                 if score > best_score:
                     state = light_state
                     best_score = score
-
-        pixel_now_1 = time.time()
-
-        #print("time to classify: ", pixel_now_1 - pixel_now)
 
         #Get classification
         return state
@@ -357,14 +244,11 @@ class TLDetector(object):
         if light:
             light_wp_index = self.get_closest_waypoint(light_pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
-            state = light.state
-            if self.light_classifier is not None:
-                state = self.get_light_state(light)
-                if light.state == state:
-                    print("Traffic Light Predicted CORRECTLY: ")
-                else:
-                    print("Traffic Light Predicted WRONG!!! ")
-            #time.sleep(5)
+            state = self.get_light_state(light)
+            if light.state == state:
+                print("Traffic Light Predicted CORRECTLY: ")
+            else:
+                print("Traffic Light Predicted WRONG!!! ")
 
             print("light state {}, predicted {}".format(light.state, state))
             return light_wp_index, state
