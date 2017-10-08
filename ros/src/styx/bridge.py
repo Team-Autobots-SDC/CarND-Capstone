@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image as PIL_Image
 from io import BytesIO
 import base64
+import time
 
 import math
 
@@ -186,6 +187,8 @@ class Bridge(object):
             image_array = np.asarray(image)
 
             image_message = self.bridge.cv2_to_imgmsg(image_array, encoding="rgb8")
+            image_message.header.stamp = rospy.Time.now()
+
             self.publishers['image'].publish(image_message)
 
             self.last_image_capture_time = t

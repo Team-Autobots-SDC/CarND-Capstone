@@ -3,7 +3,7 @@
     <!--Traffic Light Locations and Camera Config -->
     <param name="traffic_light_config" textfile="$(find tl_detector)/sim_traffic_light_config.yaml" />
 
-    <node pkg="tl_detector" type="tl_detector.py" name="tl_detector" output="screen" cwd="node">
+    <node pkg="tl_detector" type="tl_detector.py" name="tl_detector" cwd="node">
         <param name="use_inference" value="false" />
     </node>
 
