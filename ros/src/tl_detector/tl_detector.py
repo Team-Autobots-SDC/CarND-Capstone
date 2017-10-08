@@ -246,11 +246,11 @@ class TLDetector(object):
             light_wp = self.waypoints.waypoints[light_wp_index]
             state = self.get_light_state(light)
             if light.state == state:
-                print("Traffic Light Predicted CORRECTLY: ")
+                rospy.loginfo("Traffic Light Predicted CORRECTLY: ")
             else:
-                print("Traffic Light Predicted WRONG!!! ")
+                rospy.loginfo("Traffic Light Predicted WRONG!!! ")
 
-            print("light state {}, predicted {}".format(light.state, state))
+            rospy.loginfo("light state {}, predicted {}".format(light.state, state))
             return light_wp_index, state
 
         return -1, TrafficLight.UNKNOWN
