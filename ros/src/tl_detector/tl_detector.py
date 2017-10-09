@@ -114,7 +114,6 @@ class TLDetector(object):
             int: index of the closest waypoint in self.waypoints
 
         """
-
         closest_wp_index = None
         min_distance = 1e+10
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
