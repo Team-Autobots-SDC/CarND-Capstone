@@ -52,7 +52,7 @@ class TLDetector(object):
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1, buff_size=10**8)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1, buff_size=2**24)
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
@@ -146,6 +146,7 @@ class TLDetector(object):
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
         self.camera_image.data = cv_image
 
+        # return self.light_classifier.get_classification(cv_image, debug=True)
         pts = self.light_classifier.extract_bounding_box(self.camera_image, light)
 
         #TODO use light location to zoom in on traffic light in image
@@ -216,10 +217,10 @@ class TLDetector(object):
             light_wp_index = self.get_closest_waypoint(light_pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
             state = self.get_light_state(light)
-            if light.state == state:
-                rospy.loginfo("Traffic Light Predicted CORRECTLY: ")
-            else:
-                rospy.loginfo("Traffic Light Predicted WRONG!!! ")
+            # if light.state == state:
+            #     rospy.loginfo("Traffic Light Predicted CORRECTLY: ")
+            # else:
+            #     rospy.loginfo("Traffic Light Predicted WRONG!!! ")
 
             rospy.loginfo("light state {}, predicted {}".format(light.state, state))
             return light_wp_index, state

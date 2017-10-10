@@ -246,8 +246,9 @@ class WaypointUpdater(object):
 
         waypoint_r = range(min_i, min_i + LOOKAHEAD_WPS)
         stop_at_light = self.light_wp in waypoint_r
+        speed = self.last_vel.linear.x if self.last_vel is not None else 0
 
-        if stop_at_light:
+        if stop_at_light and speed > 0:
             first = self.jmt is None
 
             # calculate distance to light
@@ -256,7 +257,6 @@ class WaypointUpdater(object):
             dist = abs(s_end - s_start)
 
             # calculate estimated time interval of arrival
-            speed = self.last_vel.linear.x if self.last_vel is not None else 0
 
             if self.jmt == None:
                 rospy.loginfo('Stopping at light: %d', self.light_wp)

@@ -69,22 +69,24 @@ class JMT:
         > jmt( [0, 10, 0], [10, 10, 0], 1)
         [0.0, 10.0, 0.0, 0.0, 0.0, 0.0]
         """
-
-        t2 = t**2
-        t3 = t**3
-        t4 = t**4
-        t5 = t**5
-
-        A = np.array([[t3, t4, t5],
-                      [3 * t2, 4 * t3, 5 * t4],
-                      [6 * t, 12 * t2, 20 * t3]])
-
-        b = np.array([end[0] - (start[0] + start[1] * t + 0.5 * start[2] * t2),
-                      end[1] - (start[1] + start[2] * t),
-                      end[2] - start[2]])
-
-        x = np.linalg.solve(A, b)
-        self.params = [start[0], start[1], 0.5 * start[2], x[0], x[1], x[2]]
+        #
+        # t2 = t**2
+        # t3 = t**3
+        # t4 = t**4
+        # t5 = t**5
+        #
+        # A = np.array([[t3, t4, t5],
+        #               [3 * t2, 4 * t3, 5 * t4],
+        #               [6 * t, 12 * t2, 20 * t3]])
+        #
+        # b = np.array([end[0] - (start[0] + start[1] * t + 0.5 * start[2] * t2),
+        #               end[1] - (start[1] + start[2] * t),
+        #               end[2] - start[2]])
+        #
+        # x = np.linalg.solve(A, b)
+        # self.params = [start[0], start[1], 0.5 * start[2], x[0], x[1], x[2]]
+        # hack to get it working.
+        self.params = [start[0], start[1], 0, 0, 0 , 0]
 
         #rospy.loginfo("   jmt params {}".format(self.params))
 

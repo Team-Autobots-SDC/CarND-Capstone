@@ -17,6 +17,7 @@ PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
 class FRCNNClassifier(object):
   detection_graph = None
   session = None
+  light_i = 0
 
   def __init__(self, path='./'):
     # see if model exists, if not get it!
@@ -95,7 +96,7 @@ class FRCNNClassifier(object):
   def get_classification(self, image_np, debug=False):
     start = time.time()
     light, boxes, scores, classes, num = self.extract_bounding_box_impl(image_np)
-    state = 'No Light'
+    state = TrafficLight.UNKNOWN
     if light is not None:
       state = classify_light.classify_light_with_bounding_box(light, image_np)
     diff = time.time() - start
@@ -112,11 +113,11 @@ class FRCNNClassifier(object):
           np.squeeze(scores),
           {},
           use_normalized_coordinates=True,
-          line_thickness=4,
+          line_thickness=2,
           min_score_thresh=0.5)
       print('Time taken: {}'.format(diff))
-      plt.imshow(image_np)
-      plt.show()
+      self.light_i += 1
+      cv2.imwrite("/tmp/debug/{}.jpg".format(self.light_i),image_np)
 
     return state
 
