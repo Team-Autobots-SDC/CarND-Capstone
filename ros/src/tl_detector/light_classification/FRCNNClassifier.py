@@ -122,5 +122,6 @@ if __name__ == '__main__':
     for file in sorted(glob.glob(sys.argv[1])):
       image = cv2.imread(file)
       image = np.array(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-      print(a.get_classification(image, False))
+      classification = a.get_classification(image, False)
+      print("{} in {} has state: {}".format(file, sys.argv[1], classification))
 

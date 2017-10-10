@@ -37,7 +37,6 @@ class TLDetector(object):
         self.bridge = CvBridge()
 
         if use_inference:
-
             self.light_classifier = FRCNNClassifier(path="./light_classification/")
         else:
             self.light_classifier = CameraProjectionClassifier(self.config)
@@ -53,7 +52,7 @@ class TLDetector(object):
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
@@ -87,7 +86,8 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
-        # print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
+        print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
+        rospy.logerr("TL DETECTOR. Lighp WP: {} state : {}".format(light_wp, state))
         '''
         Publish upcoming red lights at camera frequency.
         Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
