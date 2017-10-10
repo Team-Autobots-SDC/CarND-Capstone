@@ -188,9 +188,7 @@ class Bridge(object):
 
             image_message = self.bridge.cv2_to_imgmsg(image_array, encoding="rgb8")
             image_message.header.stamp = rospy.Time.now()
-
             self.publishers['image'].publish(image_message)
-
             self.last_image_capture_time = t
 
     def callback_steering(self, data):

@@ -34,6 +34,9 @@ class FRCNNClassifier(object):
         od_graph_def.ParseFromString(serialized_graph)
         tf.import_graph_def(od_graph_def, name='')
       self.session = tf.Session(graph=self.detection_graph)
+      # Need a seed to prep the session otherwise we get some weird GPU delay on the first image
+      seed = np.zeros((480, 640, 3))
+      self.get_classification(seed)
     print('Loaded.')
 
   def extract_traffic_light(self, image, boxes, scores, classes, class_light=10):

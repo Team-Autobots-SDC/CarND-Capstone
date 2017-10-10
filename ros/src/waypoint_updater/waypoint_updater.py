@@ -44,7 +44,7 @@ class WaypointUpdater(object):
         self.traffic_light_sub = rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_light_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=10)
-        self.light_wp = -1
+        self.light_wp = None
         self.jmt = None
         self.last_vel = None
 
@@ -320,7 +320,7 @@ class WaypointUpdater(object):
     def loop(self):
         rate = rospy.Rate(self.loop_rate)
         while not rospy.is_shutdown():
-            if (self.last_pose and self.all_waypoints):
+            if (self.last_pose and self.all_waypoints and self.light_wp):
                 self.publish_waypoints()
             rate.sleep()
 
