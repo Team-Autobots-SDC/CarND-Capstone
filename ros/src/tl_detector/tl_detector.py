@@ -6,22 +6,24 @@ from styx_msgs.msg import TrafficLightArray, TrafficLight
 from styx_msgs.msg import Lane
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
-from light_classification.tl_classifier import TLClassifier
+from light_classification.FRCNNClassifier import FRCNNClassifier
 from light_classification.camera_project_classifier import CameraProjectionClassifier
 import numpy as np
 import cv2
 import yaml
 import math
 import time
+import matplotlib.image as mpimg
+import light_classification.classify_light as classify_light
 
-STATE_COUNT_THRESHOLD = 3
+STATE_COUNT_THRESHOLD = 1
 
 class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
 
         use_inference = rospy.get_param('~use_inference', True)
-        print("TL DETECTOR BOOTING UP: use inference (CNN model) = {}".format(use_inference))
+        rospy.logerr("TL DETECTOR BOOTING UP: use inference (CNN model) = {}".format(use_inference))
 
         config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
@@ -35,7 +37,7 @@ class TLDetector(object):
         self.bridge = CvBridge()
 
         if use_inference:
-            self.light_classifier = TLClassifier()
+            self.light_classifier = FRCNNClassifier(path="./light_classification/")
         else:
             self.light_classifier = CameraProjectionClassifier(self.config)
 
@@ -50,7 +52,7 @@ class TLDetector(object):
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1, buff_size=2**24)
 
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
@@ -84,7 +86,7 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
-        # print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
+        print("TL DETECTOR: IMAGE CB", light_wp, " STATE: ", state)
         '''
         Publish upcoming red lights at camera frequency.
         Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
@@ -140,6 +142,10 @@ class TLDetector(object):
             self.prev_light_loc = None
             return False
 
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
+        self.camera_image.data = cv_image
+
+        # return self.light_classifier.get_classification(cv_image, debug=True)
         pts = self.light_classifier.extract_bounding_box(self.camera_image, light)
 
         #TODO use light location to zoom in on traffic light in image
@@ -147,41 +153,7 @@ class TLDetector(object):
         #cv2.rectangle(cv_image, (int(pts[0][0]), int(pts[0][1])), (int(pts[3][0]), int(pts[3][1])), (255, 255, 255), 5)
         #mpimg.imsave('tl_detected.png', cv_image, origin='upper')
 
-        pts = np.array(pts, dtype=np.int)
-        img_shape = (self.config['camera_info']['image_width'], self.config['camera_info']['image_height'])
-
-        state = TrafficLight.UNKNOWN
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
-        light_pixels = cv_image[min(max(0, pts[0][1]), img_shape[1]):min(max(0, pts[3][1]), img_shape[1]),
-                                min(max(0, pts[0][0]), img_shape[0]):min(max(0, pts[3][0]), img_shape[0]),
-                                :]
-        if len(light_pixels) > 0:
-
-            light_pixels = cv2.cvtColor(light_pixels, cv2.COLOR_RGB2HSV)[:, :, 1]  # we only test with S channel
-
-            #mpimg.imsave('tl_detected.png', light_pixels, cmap='gray', origin='upper')
-
-            states = [TrafficLight.RED, TrafficLight.YELLOW, TrafficLight.GREEN]
-            shape = light_pixels.shape
-            split_h = shape[0] / len(states)
-
-            #print("split_h = ", split_h)
-
-            best_score = 0
-
-            for i, light_state in enumerate(states):
-                light_segment = light_pixels[i*split_h:(i+1)*split_h, :]
-                #print("shape= ", light_segment.shape)
-                #print(np.where(light_segment > 100))
-                score = len(np.where(light_segment > 200)[0])
-
-                #print("index {}, state {}, score {}".format(i, light_state, score))
-                if score > best_score:
-                    state = light_state
-                    best_score = score
-
-        #Get classification
-        return state
+        return classify_light.classify_light_with_bounding_box(pts, cv_image)
 
     def get_closest_traffic_light(self, light_position):
         if (not self.lights):
@@ -244,10 +216,10 @@ class TLDetector(object):
             light_wp_index = self.get_closest_waypoint(light_pose)
             light_wp = self.waypoints.waypoints[light_wp_index]
             state = self.get_light_state(light)
-            if light.state == state:
-                rospy.loginfo("Traffic Light Predicted CORRECTLY: ")
-            else:
-                rospy.loginfo("Traffic Light Predicted WRONG!!! ")
+            # if light.state == state:
+            #     rospy.loginfo("Traffic Light Predicted CORRECTLY: ")
+            # else:
+            #     rospy.loginfo("Traffic Light Predicted WRONG!!! ")
 
             rospy.loginfo("light state {}, predicted {}".format(light.state, state))
             return light_wp_index, state
