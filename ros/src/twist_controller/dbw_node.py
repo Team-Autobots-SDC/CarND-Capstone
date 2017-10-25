@@ -3,7 +3,7 @@
 import rospy
 from std_msgs.msg import Bool
 from std_msgs.msg import Float64, Float32
-from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
+from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport, BrakeReport, ThrottleReport
 from geometry_msgs.msg import TwistStamped
 import math
 
@@ -82,6 +82,7 @@ class DBWNode(object):
         self.loop_rate = rospy.get_param('~loop_rate', 5.)
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+        self.is_sim = rospy.get_param('~is_sim', False)
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=10)
@@ -104,8 +105,8 @@ class DBWNode(object):
 
         # Subscribers last to avoid initial race conditions
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.on_enabled)
-        rospy.Subscriber('/vehicle/throttle_report', Float32, self.on_throttle_report)
-        rospy.Subscriber('/vehicle/brake_report', Float32, self.on_brake_report)
+        rospy.Subscriber('/vehicle/throttle_report', ThrottleReport if not self.is_sim else Float32, self.on_throttle_report)
+        rospy.Subscriber('/vehicle/brake_report', BrakeReport if not self.is_sim else Float32, self.on_brake_report)
         rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.on_steering_report)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist_cmd)
         rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
@@ -182,14 +183,14 @@ class DBWNode(object):
         rospy.loginfo('Got dbw_enabled : %s',str(data.data))
 
     def on_brake_report(self, msg):
-        if not(self.brake.equals(msg.data)):
+        if self.is_sim and not(self.brake.equals(msg.data)):
             # reset and republish
             brake = self.brake.value
             self.brake.reset()
             self.publish_brake(brake)
 
     def on_throttle_report(self, msg):
-        if not(self.throttle.equals(msg.data)):
+        if self.is_sim and not(self.throttle.equals(msg.data)):
             # reset and republish
             throttle = self.throttle.value
             self.throttle.reset()

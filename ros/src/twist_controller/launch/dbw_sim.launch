@@ -12,6 +12,7 @@
         <param name="max_lat_accel" value="3." />
         <param name="max_steer_angle" value="8." />
         <param name="loop_rate" value="5." />
+        <param name="is_sim" value="true" />
     </node>
 
      <node name="throttle_pid" pkg="pid" type="controller" output="screen">
