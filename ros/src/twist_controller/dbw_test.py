@@ -5,6 +5,7 @@ import csv
 
 import rospy
 from std_msgs.msg import Bool
+from geometry_msgs.msg import TwistStamped
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 
 
@@ -27,6 +28,9 @@ class DBWTestNode(object):
         rospy.Subscriber('/vehicle/steering_cmd', SteeringCmd, self.steer_cb)
         rospy.Subscriber('/vehicle/throttle_cmd', ThrottleCmd, self.throttle_cb)
         rospy.Subscriber('/vehicle/brake_cmd', BrakeCmd, self.brake_cb)
+        rospy.Subscriber('/vehicle/steering_report', SteeringReport, self.steer_report_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.on_twist)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.on_current_velocity)
 
         rospy.Subscriber('/actual/steering_cmd', SteeringCmd, self.actual_steer_cb)
         rospy.Subscriber('/actual/throttle_cmd', ThrottleCmd, self.actual_throttle_cb)
@@ -34,11 +38,12 @@ class DBWTestNode(object):
 
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
 
-        self.steer = self.throttle = self.brake = None
+        self.steer = self.throttle = self.brake = self.speed = self.current_speed = None
 
         self.steer_data = []
         self.throttle_data = []
         self.brake_data = []
+        self.reports_data = []
 
         self.dbw_enabled = False
 
@@ -46,6 +51,7 @@ class DBWTestNode(object):
         self.steerfile = os.path.join(base_path, 'steers.csv')
         self.throttlefile = os.path.join(base_path, 'throttles.csv')
         self.brakefile = os.path.join(base_path, 'brakes.csv')
+        self.reportsfile = os.path.join(base_path, 'steer_reports.csv')
 
         self.loop()
 
@@ -53,7 +59,7 @@ class DBWTestNode(object):
         rate = rospy.Rate(10) # 10Hz
         while not rospy.is_shutdown():
             rate.sleep()
-        fieldnames = ['actual', 'proposed']
+        fieldnames = ['timestamp','actual', 'proposed', 'actual_speed', 'proposed_speed']
 
         with open(self.steerfile, 'w') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -70,6 +76,11 @@ class DBWTestNode(object):
             writer.writeheader()
             writer.writerows(self.brake_data)
 
+        with open(self.reportsfile, 'w') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.reports_data)
+
     def dbw_enabled_cb(self, msg):
         self.dbw_enabled = msg.data
 
@@ -82,22 +93,47 @@ class DBWTestNode(object):
     def brake_cb(self, msg):
         self.brake = msg.pedal_cmd
 
+    def on_twist(self, msg):
+        self.speed = msg.twist.linear.x
+
+    def on_current_velocity(self, msg):
+        self.current_speed = msg.twist.linear.x
+
+    def steer_report_cb(self, msg):
+        if self.dbw_enabled:
+            self.reports_data.append({
+                'timestamp': rospy.Time.now().to_sec(),
+                'actual': msg.steering_wheel_angle,
+                'proposed': msg.steering_wheel_angle_cmd
+            })
+
     def actual_steer_cb(self, msg):
         if self.dbw_enabled and self.steer is not None:
-            self.steer_data.append({'actual': msg.steering_wheel_angle_cmd,
-                                    'proposed': self.steer})
+            self.steer_data.append({
+                'timestamp': rospy.Time.now().to_sec(),
+                'actual': msg.steering_wheel_angle_cmd,
+                'proposed': self.steer,
+                'actual_speed': self.current_speed,
+                'proposed_speed': self.speed
+            })
             self.steer = None
 
     def actual_throttle_cb(self, msg):
         if self.dbw_enabled and self.throttle is not None:
-            self.throttle_data.append({'actual': msg.pedal_cmd,
-                                       'proposed': self.throttle})
+            self.throttle_data.append({
+                'timestamp': rospy.Time.now().to_sec(),
+                'actual': msg.pedal_cmd,
+                'proposed': self.throttle
+            })
             self.throttle = None
 
     def actual_brake_cb(self, msg):
         if self.dbw_enabled and self.brake is not None:
-            self.brake_data.append({'actual': msg.pedal_cmd,
-                                    'proposed': self.brake})
+            self.brake_data.append({
+                'timestamp': rospy.Time.now().to_sec(),
+                'actual': msg.pedal_cmd,
+                'proposed': self.brake}
+            )
             self.brake = None
 
 

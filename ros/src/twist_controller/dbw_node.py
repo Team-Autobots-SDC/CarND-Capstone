@@ -93,7 +93,7 @@ class DBWNode(object):
 
         # TODO: Create `TwistController` object
 
-        self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 0, self.max_lat_accel, max_steer_angle)
+        self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 3.0, self.max_lat_accel, max_steer_angle)
 
         self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
         self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
@@ -197,28 +197,29 @@ class DBWNode(object):
             self.publish_throttle(throttle)
 
     def on_steering_report(self, msg):
+        #rospy.loginfo('Steering angle cmd : %f', msg.steering_wheel_angle_cmd)
         pass
 
     def on_twist_cmd(self, data):
         #rospy.logdebug('Got twist cmd : %s', str(data))
 
         # do not allow the car to go backwards
-        speed = max(0, data.twist.linear.x)
+        proposed_speed = max(0, data.twist.linear.x)
+        current_speed = self.speed.value
 
         #rospy.logdebug('New speed : %s', speed)
 
         # publish to PID control node and wait for output
-        self.pid_setpoint.publish(speed)
+        self.pid_setpoint.publish(proposed_speed)
 
         #TODO: Handle angular velocity
         #self.last_timestamp = rospy.Time(data.header.stamp.secs, data.header.stamp.nsecs)
         #self.last_proposed_angular_vel = data.twist.angular.z
 
-        self.proposed_speed = speed
-        if (self.proposed_speed):
-            steering = self.yaw_controller.get_steering(data.twist.linear.x, data.twist.angular.z,
-                                                        self.proposed_speed)
-            self.publish_steering(steering)
+        self.proposed_speed = proposed_speed
+
+        steering = self.yaw_controller.get_steering(current_speed, data.twist.angular.z, current_speed)
+        self.publish_steering(steering)
         #rospy.logerr('Got data: %s, last_ts: %f', str(data), self.last_timestamp.to_sec())
 
     def loop(self):
@@ -232,6 +233,7 @@ class DBWNode(object):
     def publish_steering(self, steer):
         scmd = SteeringCmd()
         scmd.enable = True
+        #rospy.loginfo('Proposed Steering angle command : %f', steer)
         scmd.steering_wheel_angle_cmd = steer
         self.steer_pub.publish(scmd)
 
