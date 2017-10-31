@@ -38,6 +38,7 @@ class WaypointUpdater(object):
 
         self.loop_rate = rospy.get_param('~loop_rate', 5.)
         self.ttl_multiplier = rospy.get_param('~ttl_multiplier', 1.0)
+        self.ttl_limit = rospy.get_param('~ttl_limit', 2.0)
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
@@ -249,7 +250,7 @@ class WaypointUpdater(object):
         stop_at_light = self.light_wp in waypoint_r
         speed = self.last_vel.linear.x if self.last_vel is not None else 0
 
-        if stop_at_light and speed > 0:
+        if stop_at_light:
             first = self.jmt is None
 
             # calculate distance to light
@@ -258,12 +259,12 @@ class WaypointUpdater(object):
             dist = abs(s_end - s_start)
 
             # calculate estimated time interval of arrival
+            ttl = max(0.1, (dist / speed) * self.ttl_multiplier)  # 1.5 is magic number to allow the car to get closer to the stop line
 
-            if self.jmt == None:
+            if self.jmt == None and ttl < self.ttl_limit:
                 rospy.loginfo('Stopping at light: %d', self.light_wp)
 
                 accel = 0 # XXX assume 0 for now
-                ttl = max(0.1, (dist / speed) * self.ttl_multiplier) # 1.5 is magic number to allow the car to get closer to the stop line
 
                 # generate new jmt
                 rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)
@@ -283,13 +284,17 @@ class WaypointUpdater(object):
                 self.jmt = jmts[0]
                                         
                                         """
-
                 self.jmt = JMT([s_start, speed, accel], [s_end, 0, 0], ttl)
 
                 # JMT is not fully working... linearize for now
                 self.jmt.linearize(-speed/ttl)
 
+        else:
+            if self.jmt is not None:
+                #rospy.logerr('Light is no longer red, moving forward')
+                self.jmt = None
 
+        if self.jmt is not None:
             for i in waypoint_r:
                 waypoint = self.all_waypoints[i % len(self.all_waypoints)]
                 waypoint_s = self.waypoints_s[i % len(self.all_waypoints)]
@@ -303,11 +308,7 @@ class WaypointUpdater(object):
                 else:
                     waypoint.twist.twist.linear.x = 0
                 waypointCmds.append(waypoint)
-
         else:
-            if self.jmt is not None:
-                rospy.loginfo('Light is no longer red, moving forward')
-                self.jmt = None
             for i in waypoint_r:
                 waypoint = self.all_waypoints[i % len(self.all_waypoints)]
                 waypointCmds.append(waypoint)
