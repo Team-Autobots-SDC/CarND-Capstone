@@ -16,18 +16,18 @@
     </node>
 
     <node name="throttle_pid" pkg="pid" type="controller">
-      <param name="Kp" value="0.2" />
+      <param name="Kp" value="1.0" />
       <param name="Ki" value="0.02" />
-      <param name="Kd" value="0.0002" />
-      <param name="upper_limit" value="0.035" />
-      <param name="lower_limit" value="-0.035" />
-      <param name="windup_limit" value="100" />
+      <param name="Kd" value="0.0" />
+      <param name="upper_limit" value="0.05" />
+      <param name="lower_limit" value="-1.0" />
+      <param name="windup_limit" value="20" />
       <param name="pid_enable_topic" value="/throttle_pid/enable" />
       <param name="topic_from_plant" value="/throttle_pid/state" />
       <param name="setpoint_topic" value="/throttle_pid/setpoint" />
       <param name="topic_from_controller" value="/throttle_pid/control_effort" />
       <param name="max_loop_frequency" value="30.0" />
-      <param name="min_loop_frequency" value="1.0" />
+      <param name="min_loop_frequency" value="30.0" />
      </node>
 
     <!-- enable for debugging PID controller

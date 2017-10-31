@@ -80,7 +80,7 @@ class DBWNode(object):
         self.wheel_base = rospy.get_param('~wheel_base', 2.8498)
         self.max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         self.loop_rate = rospy.get_param('~loop_rate', 5.)
-        steer_ratio = rospy.get_param('~steer_ratio', 14.8)
+        self.steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
         self.is_sim = rospy.get_param('~is_sim', False)
 
@@ -93,7 +93,7 @@ class DBWNode(object):
 
         # TODO: Create `TwistController` object
 
-        self.yaw_controller =  YawController(self.wheel_base, steer_ratio, 3.0, self.max_lat_accel, max_steer_angle)
+        self.yaw_controller =  YawController(self.wheel_base, self.steer_ratio, 3.0, self.max_lat_accel, max_steer_angle)
 
         self.pid_enable_pub = rospy.Publisher('/throttle_pid/enable', Bool, queue_size=1)
         self.pid_state = rospy.Publisher('/throttle_pid/state', Float64, queue_size=1)
