@@ -30,9 +30,6 @@
 
 #include "pure_pursuit_core.h"
 
-constexpr int LOOP_RATE = 30; //processing frequency
-
-
 int main(int argc, char **argv)
 {
 
@@ -44,7 +41,9 @@ int main(int argc, char **argv)
   ros::NodeHandle private_nh("~");
 
   bool linear_interpolate_mode;
+  float looprate;
   private_nh.param("linear_interpolate_mode", linear_interpolate_mode, bool(true));
+  private_nh.param("loop_rate", looprate, 30.f);
   ROS_INFO_STREAM("linear_interpolate_mode : " << linear_interpolate_mode);
 
   waypoint_follower::PurePursuit pp(linear_interpolate_mode);
@@ -63,7 +62,7 @@ int main(int argc, char **argv)
       nh.subscribe("current_velocity", 10, &waypoint_follower::PurePursuit::callbackFromCurrentVelocity, &pp);
 
   ROS_INFO("pure pursuit start");
-  ros::Rate loop_rate(LOOP_RATE);
+  ros::Rate loop_rate(looprate);
   while (ros::ok())
   {
     ros::spinOnce();
