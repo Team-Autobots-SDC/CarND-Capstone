@@ -37,13 +37,14 @@ class WaypointUpdater(object):
         rospy.init_node('waypoint_updater')
 
         self.loop_rate = rospy.get_param('~loop_rate', 5.)
+        self.ttl_multiplier = rospy.get_param('~ttl_multiplier', 1.0)
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
         self.basepoint_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         self.traffic_light_sub = rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_light_cb)
 
-        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=10)
+        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         self.light_wp = None
         self.jmt = None
         self.last_vel = None
@@ -262,7 +263,7 @@ class WaypointUpdater(object):
                 rospy.loginfo('Stopping at light: %d', self.light_wp)
 
                 accel = 0 # XXX assume 0 for now
-                ttl = (dist / speed) * 1.5 # 1.5 is magic number to allow the car to get closer to the stop line
+                ttl = max(0.1, (dist / speed) * self.ttl_multiplier) # 1.5 is magic number to allow the car to get closer to the stop line
 
                 # generate new jmt
                 rospy.loginfo('   estimated speed: %f, ttl %f, s_start %f, s_end %f', speed, ttl, s_start, s_end)

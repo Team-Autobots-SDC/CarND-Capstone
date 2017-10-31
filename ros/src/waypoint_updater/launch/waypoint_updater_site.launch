@@ -2,6 +2,6 @@
 <launch>
     <node pkg="waypoint_updater" type="waypoint_updater.py" name="waypoint_updater" >
         <param name="loop_rate" value="30." />
-        <param name="ttl_multiplier" value="1.75" />
+        <param name="ttl_multiplier" value="1.0" />
     </node>
 </launch>
