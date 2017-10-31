@@ -5,6 +5,7 @@
 
     <node pkg="tl_detector" type="tl_detector.py" name="tl_detector" cwd="node" output="screen">
         <param name="use_inference" value="true" />
+        <param name="detection_distance" value="10.0" />
     </node>
 
 </launch>

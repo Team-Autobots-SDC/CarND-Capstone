@@ -23,6 +23,7 @@ class TLDetector(object):
         rospy.init_node('tl_detector')
 
         use_inference = rospy.get_param('~use_inference', True)
+        self.detection_distance = rospy.get_param('~detection_distance', 10.0)
         rospy.logerr("TL DETECTOR BOOTING UP: use inference (CNN model) = {}".format(use_inference))
 
         config_string = rospy.get_param("/traffic_light_config")
@@ -190,7 +191,7 @@ class TLDetector(object):
             current_wp_pose = self.waypoints.waypoints[waypoint_index_closest_to_car_position]
             # print("Closest WP to Car POSE: ", current_wp_pose.pose.pose)
             #TODO find the closest visible traffic light (if one exists)
-            buffer_space_in_meters = 50
+            buffer_space_in_meters = self.detection_distance
 
             min_light_dist = 1e+10
             closest_light_index = None
@@ -201,7 +202,7 @@ class TLDetector(object):
                 car_position = current_wp_pose.pose.pose.position
                 if (abs(car_position.x-light_x) < buffer_space_in_meters): #and traffic light is facing us.
                     dist = dl(current_wp_pose.pose.pose.position, light_position)
-                    if dist < 50 and dist < min_light_dist:
+                    if dist < self.detection_distance and dist < min_light_dist:
                         #print("Found a close Traffic Light: ", light_position)
                         min_light_dist = dist
                         closest_light_index = index
