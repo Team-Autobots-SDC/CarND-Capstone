@@ -8,12 +8,9 @@ from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from light_classification.FRCNNClassifier import FRCNNClassifier
 from light_classification.camera_project_classifier import CameraProjectionClassifier
-import numpy as np
-import cv2
 import yaml
 import math
 import time
-import matplotlib.image as mpimg
 import light_classification.classify_light as classify_light
 
 STATE_COUNT_THRESHOLD = 1
