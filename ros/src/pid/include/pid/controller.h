@@ -36,10 +36,8 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#include <dynamic_reconfigure/server.h>
 #include <iostream>
 #include "math.h"
-#include <pid/PidConfig.h>
 #include "ros/ros.h"
 #include <ros/time.h>
 #include <std_msgs/Float64.h>

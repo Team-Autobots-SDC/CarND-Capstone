@@ -8,12 +8,11 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   message_generation
-  dynamic_reconfigure
 )
 
-generate_dynamic_reconfigure_options(
-    cfg/Pid.cfg
-)
+#generate_dynamic_reconfigure_options(
+#    cfg/Pid.cfg
+#)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 

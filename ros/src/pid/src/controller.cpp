@@ -196,6 +196,7 @@ void get_params(double in, double &value, double &scale)
   scale = pow(10.0,digits);
 }
 
+/*
 void reconfigure_callback(pid::PidConfig &config, uint32_t level)
 {
   if (first_reconfig)
@@ -212,7 +213,7 @@ void reconfigure_callback(pid::PidConfig &config, uint32_t level)
   ////////////////////////////////////
   // Error checking
   ////////////////////////////////////
-
+*/
 bool validate_parameters()
 {
   if ( lower_limit > upper_limit )
@@ -299,10 +300,10 @@ int main(int argc, char **argv)
   ros::Subscriber pid_enabled_sub = node.subscribe(pid_enable_topic, 1, pid_enable_callback );
 
   // configure dynamic reconfiguration
-  dynamic_reconfigure::Server<pid::PidConfig> config_server;
-  dynamic_reconfigure::Server<pid::PidConfig>::CallbackType f;
-  f = boost::bind(&reconfigure_callback, _1, _2);
-  config_server.setCallback(f);
+//  dynamic_reconfigure::Server<pid::PidConfig> config_server;
+//  dynamic_reconfigure::Server<pid::PidConfig>::CallbackType f;
+//  f = boost::bind(&reconfigure_callback, _1, _2);
+//  config_server.setCallback(f);
 
   // Respond to inputs until shut down
   ros::spin();
