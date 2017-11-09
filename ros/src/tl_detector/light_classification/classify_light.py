@@ -1,7 +1,5 @@
 import numpy as np
 import cv2
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 from styx_msgs.msg import TrafficLight
 
 
