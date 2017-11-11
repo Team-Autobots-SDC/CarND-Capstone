@@ -324,6 +324,8 @@ class WaypointUpdater(object):
         while not rospy.is_shutdown():
             if (self.last_pose and self.all_waypoints and self.light_wp):
                 self.publish_waypoints()
+            else:
+                rospy.loginfo("Not publishing waypoints. Lastpose:{}, light_wp:{}".format(self.last_pose, self.light_wp))
             rate.sleep()
 
 if __name__ == '__main__':

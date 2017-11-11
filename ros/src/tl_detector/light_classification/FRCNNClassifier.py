@@ -26,7 +26,7 @@ class FRCNNClassifier(object):
     else:
       rospy.logerr('Missing Faster RCNN model with COCO. Run `download_rcnn_model.sh` first.')
 
-    print('Loading tf graph...')
+    rospy.loginfo('Loading tf graph...')
     self.detection_graph = tf.Graph()
     with self.detection_graph.as_default():
       od_graph_def = tf.GraphDef()
@@ -38,7 +38,7 @@ class FRCNNClassifier(object):
       # Need a seed to prep the session otherwise we get some weird GPU delay on the first image
       seed = np.zeros((480, 640, 3))
       self.get_classification(seed)
-    print('Loaded.')
+    rospy.loginfo('FRCNN Loaded.')
 
   def extract_traffic_light(self, image, boxes, scores, classes, class_light=10):
     scores = np.squeeze(scores)
