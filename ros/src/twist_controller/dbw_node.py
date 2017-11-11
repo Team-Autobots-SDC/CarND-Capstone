@@ -15,6 +15,8 @@ ONE_MPH = 0.44704
 MIN_SPEED = ONE_MPH
 MAX_SPEED = 25 * ONE_MPH
 
+MINIMUM_BRAKE_TORQUE = 100
+
 
 '''
 You can build this node only after you have built (or partially built) the `waypoint_updater` node.
@@ -83,6 +85,8 @@ class DBWNode(object):
         self.steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
         self.is_sim = rospy.get_param('~is_sim', False)
+        self.last_twist_time = rospy.Time.now()
+        self.twist_timeout_interval = 0.5 # half second
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=10)
@@ -127,7 +131,7 @@ class DBWNode(object):
         if self.proposed_speed == 0.0 and self.speed.value < 0.5:
             # apply minimum brake
             throttle = 0.0
-            brake_torque = 100
+            brake_torque = MINIMUM_BRAKE_TORQUE
 
         elif throttle > 0:
             pass
@@ -182,6 +186,11 @@ class DBWNode(object):
         self.pid_enable_pub.publish(data.data)
         rospy.loginfo('Got dbw_enabled : %s',str(data.data))
 
+        # set a minimum brake when the dbw is enabled to make sure the car doesn't move forward until
+        # a twist command is received
+        if self.dbw_enabled:
+            self.publish_brake(MINIMUM_BRAKE_TORQUE)
+
     def on_brake_report(self, msg):
         if self.is_sim and not(self.brake.equals(msg.data)):
             # reset and republish
@@ -222,9 +231,15 @@ class DBWNode(object):
         self.publish_steering(steering)
         #rospy.logerr('Got data: %s, last_ts: %f', str(data), self.last_timestamp.to_sec())
 
+        self.last_twist_time = rospy.Time.now()
+
     def loop(self):
         rate = rospy.Rate(self.loop_rate)
         while not rospy.is_shutdown():
+
+            if rospy.Time.now().to_sec() - self.last_twist_time.to_sec() >= self.twist_timeout_interval:
+                self.pid_setpoint.publish(-10.0)
+
             pid_enable = self.dbw_enabled and not (self.proposed_speed == 0.0 and self.speed.value < 0.01)
             self.pid_enable_pub.publish(pid_enable)
             self.pid_state.publish(self.speed.value)
