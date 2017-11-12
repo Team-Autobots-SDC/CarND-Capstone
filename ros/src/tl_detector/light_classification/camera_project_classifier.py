@@ -95,18 +95,18 @@ class CameraProjectionClassifier:
 
             #print("point in camera frame adj {}".format(point_in_camera_space))
 
-        except (tf.Exception, tf.LookupException, tf.ConnectivityException):
-            rospy.logerr("Failed to find camera to map transform")
-
-        bbox_points = [(point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
+            bbox_points = [(point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
                        (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0),
                        (point_in_camera_space[0] - 0.5, point_in_camera_space[1] - 1.1, point_in_camera_space[2], 1.0),
                        (point_in_camera_space[0] + 0.5, point_in_camera_space[1] + 1.1, point_in_camera_space[2], 1.0)]
 
-        # these points represent the bounding box within the camera's image
-        for p in bbox_points:
-            bbox_points_camera_image.append(camera.project3dToPixel(p))
+            # these points represent the bounding box within the camera's image
+            for p in bbox_points:
+                bbox_points_camera_image.append(camera.project3dToPixel(p))
 
-        #print("point in image {}".format(bbox_points_camera_image))
+            # print("point in image {}".format(bbox_points_camera_image))
+
+        except (tf.Exception, tf.LookupException, tf.ConnectivityException):
+            rospy.logerr("Failed to find camera to map transform")
 
         return bbox_points_camera_image

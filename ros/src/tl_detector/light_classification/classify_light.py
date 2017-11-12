@@ -7,7 +7,7 @@ def classify_light_with_bounding_box(pts, image):
 
     state = TrafficLight.UNKNOWN
     best_score = None
-    if pts is not None:
+    if pts is not None and len(pts) > 0:
 
         pts = np.array(pts, dtype=np.int)
         img_shape = image.shape
