@@ -11,7 +11,7 @@
         <param name="steer_ratio" value="14.8" />
         <param name="max_lat_accel" value="3." />
         <param name="max_steer_angle" value="8." />
-        <param name="loop_rate" value="30." />
+        <param name="loop_rate" value="50." />
         <param name="is_sim" value="false" />
     </node>
 
@@ -26,8 +26,8 @@
       <param name="topic_from_plant" value="/throttle_pid/state" />
       <param name="setpoint_topic" value="/throttle_pid/setpoint" />
       <param name="topic_from_controller" value="/throttle_pid/control_effort" />
-      <param name="max_loop_frequency" value="30.0" />
-      <param name="min_loop_frequency" value="30.0" />
+      <param name="max_loop_frequency" value="50.0" />
+      <param name="min_loop_frequency" value="50.0" />
      </node>
 
     <!-- enable for debugging PID controller
