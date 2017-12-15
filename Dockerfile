@@ -15,11 +15,6 @@ RUN apt-get install -y ros-$ROS_DISTRO-dbw-mkz
 RUN apt-get upgrade -y
 # end installing Dataspeed DBW
 
-# install python packages
-RUN apt-get install -y python-pip
-COPY requirements.txt ./requirements.txt
-RUN pip install -r requirements.txt
-
 # install required ros dependencies
 RUN apt-get install -y ros-$ROS_DISTRO-cv-bridge
 RUN apt-get install -y ros-$ROS_DISTRO-pcl-ros
@@ -27,6 +22,11 @@ RUN apt-get install -y ros-$ROS_DISTRO-image-proc
 
 # socket io
 RUN apt-get install -y netbase
+
+# install python packages
+RUN apt-get install -y python-pip
+COPY requirements.txt ./requirements.txt
+RUN pip install -r requirements.txt
 
 RUN mkdir /capstone
 VOLUME ["/capstone"]
